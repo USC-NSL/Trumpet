@@ -1,0 +1,5 @@
+*.o
+*.log
+*.tgz
+**/build
+**/mine
