@@ -4,11 +4,11 @@ This is the explanation on how to regenerate the experiment for comparing differ
 - the optimizations.sh script will run the experiment multiple times with different packet rates to find out if it is feasible with a rate or not.
 - Workflow: we disable each optimization in util.h file, compile the code and run the optimizations.sh <prefix>. Each setting can have a prifix, so that later running optimizations_1.sh can gather the result easily.
 - The mapping between the optimizations and the option in util.h
--- Packet prefetcing: PKT_PREFETCH_ENABLE
--- Hashmap prefetching: HASH_PREFETCH_ENABLE
--- Prefetching in the sweep phase: SWEEP_PREFETCH_ENABLE
--- using hugepages: DPDK_BIG_MALLOC
--- putting triggers back to back: TRIGGERTABLE_INLINE_TRIGGER
+ - Packet prefetcing: PKT_PREFETCH_ENABLE
+ - Hashmap prefetching: HASH_PREFETCH_ENABLE
+ - Prefetching in the sweep phase: SWEEP_PREFETCH_ENABLE
+ - using hugepages: DPDK_BIG_MALLOC
+ - putting triggers back to back: TRIGGERTABLE_INLINE_TRIGGER
 
 Example: 
 - set PKT_PREFETCH_ENABLE to 0
