@@ -1,0 +1,35 @@
+--- test.c	2016-06-30 15:26:47.484320456 -0700
++++ basicfwd.c	2016-06-30 15:26:53.240333739 -0700
+@@ -1227,16 +1227,16 @@
+ #if !NOMEASURE
+ 			if (nb_rx == 0){ 
+ 				//to measure zerots for optimizations
+-/*				if (lastzerots > 0 && experiment_isstarted(mt)){
++				if (lastzerots > 0 && experiment_isstarted(mt)){
+ 					uint64_t temp = rte_rdtsc(); //this is required to not include last epoch that packets may have arrived
+ 					mt->stat_zerots += temp - lastzerots;
+ 					lastzerots = temp;
+ 				}else{
+ 					lastzerots = rte_rdtsc();
+-				}*/
++				}
+                                 break;
+                         }
+-//			lastzerots = 0;
++			lastzerots = 0;
+ 
+                         readpackets(bufs, nb_rx, mt);
+ #endif
+@@ -1264,9 +1264,9 @@
+ 				
+                                 //if (todrain < RX_RING_SIZE - 200){ // 2*(5us+1us)*15
+                                 if (todrain < 40){ // 2*(5us+1us)*15
+-//					if (lastzerots == 0 && experiment_isstarted(mt)){
+-//						lastzerots = rte_rdtsc();
+-//					}
++					if (lastzerots == 0 && experiment_isstarted(mt)){
++						lastzerots = rte_rdtsc();
++					}
+                                         break;
+                                 }
+                         }
