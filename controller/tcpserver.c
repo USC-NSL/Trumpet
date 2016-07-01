@@ -199,6 +199,7 @@ int main(int argc, char **argv) {
 	if (eventhandler_activeservers(eh) == addeventforservers){
 	  /*  pthread_t p;
 	    pthread_create(&p, NULL, (void *)addevent_delay, (void *)eh); */
+		//add the event after some delay so that the servers are setup correctly 
 		eventhandler_addeventdelay(eh, g.eventsnum, 1000000);
 	}
   }

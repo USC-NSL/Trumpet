@@ -1,4 +1,6 @@
 #!/bin/bash
-ssh -n  masoud@$1 "sh -c 'cd /home/masoud/dpdk_r/dpdk/examples/receiver; \"$2\" \"$3\" >  \"$4\" 2>&1'"&
+RECEIVER_FOLDER=/home/masoud/dpdk_r/dpdk/examples/receiver
+user=masoud
+ssh -n  ${user}@$1 "sh -c 'cd \"$RECEIVER_FOLDER\"; \"$2\" \"$3\" >  \"$4\" 2>&1'"&
 wait
-scp masoud@$1:/home/masoud/dpdk_r/dpdk/examples/receiver/$4 $4
+scp ${user}@$1:$RECEIVER_FOLDER/$4 $4

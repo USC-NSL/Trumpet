@@ -63,9 +63,13 @@
 //force no multiport and one thread in special cases
 	#define MEASUREMENTTHREAD_NUM	1
 	#define MULTIPORT 0
-#else
+#endif
+
 //change this if you need multi thread or multi port
+#ifndef MEASUREMENTTHREAD_NUM
 	#define MEASUREMENTTHREAD_NUM	1
+#endif
+#ifndef MULTIPORT
 	#define MULTIPORT 0
 #endif
 

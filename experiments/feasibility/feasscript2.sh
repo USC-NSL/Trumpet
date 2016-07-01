@@ -16,7 +16,7 @@ for j in `seq 0 4`;
 					do 
 					let t2=20*r; 
 					let t=4096/8*p;
-					./run.sh "-r $r -t $t2 -p 1 -D $d -l 1 -S 60 -a $a -f $f" "-t $t -p $p -P 32 -n $t2 -d 0.000005 -T 1 -c 204.57.3.177 -l feas_${i}_${a}_${p}_${r}_${j} -w $w -i $i" _${i}_${a}_${p}_${r}_${j}; 
+					./run.sh "-r $r -t $t2 -p 1 -D $d -l 1 -S 60 -a $a -f $f" "-t $t -p $p -P 32 -n $t2 -d 0.000005 -T 1 -l feas_${i}_${a}_${p}_${r}_${j} -w $w -i $i" _${i}_${a}_${p}_${r}_${j}; 
 					sleep 5;
                                         x=`cat feas_${i}_${a}_${p}_${r}_${j}_0.txt | grep "notfinished" | cut -f3 -d\ `;
                                         if [ $x -eq 0 ]; then

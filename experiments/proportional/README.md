@@ -1,0 +1,4 @@
+This is a guide to replicate the result for proportional resource usage in Trumpet. For this, we need to change the definition of triggers so that they only match part of the set of flows and rerun the experiment.
+- The generator is set to generate the flows over 64k different IPs. The recevier also tries to cover the range when it defines the set of triggers. By changing the IP range at the receiver, we can change the definition of triggers to only coveer part of the flow space. Change the iprangesie variable in the flatreport_addtriggers method of flatreport.c file in the receiver. For example setting that to 1<<15, means only 50% of flows will be covered by triggers.
+- Compile the code and run the base10 experiment using run.sh script at the receiver
+- You can use a script similar to the one in experiments/burst/burst_1.sh to gather CPU Quiescent time and sweep time.

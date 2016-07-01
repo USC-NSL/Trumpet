@@ -10,23 +10,48 @@
 #include "serverdata.h"
 #include "util.h"
 
-static bool proudpeventon = false;
-static bool udpeventon = false;
-typedef void (*dc_func)(struct eventhandler * eh, uint32_t param);
-
-enum delayedcommand_type{
-        dct_addevent,
-        dct_delevent,
-        dct_func,
+/*
+* 0: tcp
+* 1: reactive congestion
+* 2: proactive congestion
+* 3: network wide
+*/
+enum usecase_type{
+        usecase_tcp,
+        usecase_reactivecongestion,
+        usecase_proactivecongestion,
+	usecase_networkwide,
 };
 
+static enum usecase_type usecase =  usecase_reactivecongestion;
+
+static bool proactive_udpeventon = false;
+static bool reactive_udpeventon = false; //a hack to see if the udp heavy hitter detection event is on or not.
+
+enum dc_param_type{
+	dcpt_num,
+	dcpt_pointer,
+};
+
+struct dc_param{
+	union{
+		uint64_t num;
+		void * pointer;
+	};
+	enum dc_param_type type;
+};
+typedef void (*dc_func)(struct eventhandler * eh, struct dc_param * param);
+
+/*
+* The data structure to represent a delayed command. 
+* The command action is specified by its type. The general one dtc_func can run any function 
+* with a param. A simple improvement could be to remove the type and just use the function.
+*/
 struct delayedcommand{
-	struct event * e;
 	uint64_t timeus;
 	void * next;
 	dc_func func;
-	uint32_t param;
-	enum delayedcommand_type type;
+	struct dc_param param;
 };
 
 
@@ -46,11 +71,13 @@ void getaneventhistory(struct event * e, struct trigger * t2, struct eventhistor
 uint64_t eventhandler_gettime_(struct eventhandler *eh);
 void * delaycommand_thread (void *_);
 void lossaction(struct eventhandler * eh, uint32_t removedelay);
+void lossaction2(struct eventhandler * eh, struct dc_param * removedelay1);
 
-void eventhandler_addevent(struct eventhandler * eh, uint16_t eventsnum);
-void eventhandler_addlossevent(struct eventhandler * eh);
+void eventhandler_addevent(struct eventhandler * eh, struct dc_param * eventsnum1);
+void eventhandler_addlossevent(struct eventhandler * eh, struct dc_param * param);
 struct event * event_init(struct eventhandler * eh);
 void eventhandler_adddc(struct eventhandler * eh, struct delayedcommand * dc2);
+void eventhandler_delevent2(struct eventhandler *eh, struct dc_param * param);
 
 struct eventhandler * eventhandler_init(void){
 	struct eventhandler * eh = malloc(sizeof (struct eventhandler));
@@ -104,6 +131,8 @@ void eventhandler_finish(struct eventhandler * eh){
 void eventhandler_adddc(struct eventhandler * eh, struct delayedcommand * dc2){
 	struct delayedcommand * dc_prev, * dc;
 	pthread_mutex_lock(&eh->global_mutex);
+
+	//find the position to insert the delayed commmand
 	for (dc_prev = NULL, dc = eh->dc; dc != NULL && dc->timeus <= dc2->timeus; dc_prev = dc, dc = dc->next); //find dc
 	if (dc_prev == NULL){
 		eh->dc = dc2;
@@ -115,6 +144,9 @@ void eventhandler_adddc(struct eventhandler * eh, struct delayedcommand * dc2){
 	sem_post(&eh->dc_sem);
 }
 
+/*
+* add an event but with delay from current time
+*/
 void eventhandler_addeventdelay(struct eventhandler * eh, uint32_t eventnum, uint32_t delayus){
 //	int i; 
 	uint64_t timeus = eventhandler_gettime_(eh)/1000 + delayus;
@@ -122,12 +154,19 @@ void eventhandler_addeventdelay(struct eventhandler * eh, uint32_t eventnum, uin
 	
 //	for (i = 0; i < eventnum; i++){
 		dc = MALLOC(sizeof (struct delayedcommand));
-		dc->type = dct_addevent;
-		dc->e = NULL;
-		dc->func = NULL;
+		if (usecase == usecase_networkwide){
+			dc->func = eventhandler_addevent;
+		}else if (usecase == usecase_reactivecongestion || usecase == usecase_proactivecongestion){
+			dc->func = eventhandler_addlossevent;
+		}else{
+			fprintf(stderr, "not supported usecase %d\n", usecase);
+			FREE(dc);
+			return;
+		}
 		dc->timeus = timeus;
 		dc->next = NULL;
-		dc->param = eventnum;
+		dc->param.type = dcpt_num;
+		dc->param.num = eventnum;
 		
 		eventhandler_adddc(eh, dc);
 //	}
@@ -145,36 +184,41 @@ void eventhandler_syncepoch(int ms){
         }while (tv.tv_usec/ (ms * 1000) != 0);
 }
 
-
+/*
+* It goes through the delayed commands and runs them. 
+* It assumes the linkedlist of delayedcommadns is sorted based on their timeus
+* it uses the semaphore to sleep if the list is empty.
+* if the list is not empty and no event until the next 100us, it will sleep otherwise it busy loops
+* It uses the global mutex to change the linked list
+*/
 void * delaycommand_thread (void *_){
         struct eventhandler * eh = (struct eventhandler *)_;
 	uint64_t time;
 	while (!eh->dc_finish){
 		struct delayedcommand * dc = eh->dc;
+		//no delayed command thus wait on the semaphore
 		if (dc == NULL){
-//			printf("wait\n");
 			sem_wait(&eh->dc_sem);
 			continue;
 		}
 		time = eventhandler_gettime_(eh)/1000;	
-//		printf("%"PRIu64" vs %"PRIu64"\n", time, dc->timeus);
 		if (time >= dc->timeus){
 			//run the command
-			switch(dc->type){
+			dc->func(eh, &dc->param);
+		/*	switch(dc->type){
 				case dct_addevent:
 					eventhandler_addlossevent(eh);					
 				break;
 				case dct_delevent:
-					udpeventon = false;
+					reactive_udpeventon = false;
 					eventhandler_delevent(eh, dc->e);	
 				break;
 				case dct_func:
-					dc->func(eh, dc->param);
 				break;	
 				default:
 					fprintf(stderr, "Eventhandler: Unrecognized delayedcommand type %d\n", dc->type);
 				break;
-			}
+			}*/
 			
 			pthread_mutex_lock(&eh->global_mutex);
 			eh->dc = dc->next;
@@ -192,6 +236,9 @@ void * delaycommand_thread (void *_){
 }
 
 
+/*
+* clear all events and related data structures
+*/
 void resetevents(struct eventhandler * eh){
 	pthread_mutex_lock(&eh->global_mutex);
 	hashmap_apply(eh->eventsmap, event_finish, eh);
@@ -199,11 +246,9 @@ void resetevents(struct eventhandler * eh){
 	pthread_mutex_unlock(&eh->global_mutex);
 }
 
-
-
-bool event_equalid(void * data1, void * data2, void * aux __attribute__((unused))){
-	uint16_t id = *(uint16_t *)data1;
-	struct event * e = (struct event *)data2;
+bool event_equalid(void * id1, void * event2, void * aux __attribute__((unused))){
+	uint16_t id = *(uint16_t *)id1;
+	struct event * e = (struct event *)event2;
 	return id == e->id;
 }
 
@@ -211,19 +256,16 @@ void eventhandler_addserver(struct eventhandler *eh, struct serverdata *server){
 	if (server->id < MAX_SERVERS && eh->servers[server->id] == NULL){
 		eh->servers[server->id] = server;
 
-		if (server->id == 2){
-			if (!proudpeventon){
-				proudpeventon = true;
-				uint64_t timeus = eventhandler_gettime_(eh)/1000 + 1000000;
-				struct delayedcommand * dc = MALLOC(sizeof (struct delayedcommand));
-				dc->type = dct_func;
-				dc->e = NULL;
-				dc->func = lossaction;
-				dc->timeus = timeus;
-				dc->next = NULL;
-				dc->param = 0;
-				eventhandler_adddc(eh, dc);
-			}
+		if (usecase == usecase_proactivecongestion && server->id == 2 && !proactive_udpeventon){
+			proactive_udpeventon = true;
+			uint64_t timeus = eventhandler_gettime_(eh)/1000 + 1000000;
+			struct delayedcommand * dc = MALLOC(sizeof (struct delayedcommand));
+			dc->func = lossaction2;
+			dc->timeus = timeus;
+			dc->next = NULL;
+			dc->param.type = dcpt_num;
+			dc->param.num = 0;
+			eventhandler_adddc(eh, dc);
 		}
 
 	}else{
@@ -278,11 +320,16 @@ uint16_t getservers_forevent(struct eventhandler * eh, struct event * e __attrib
 	return i; 
 }
 
+void eventhandler_delevent2(struct eventhandler *eh, struct dc_param * param){
+	reactive_udpeventon = false;
+	eventhandler_delevent(eh, (struct event *) param->pointer);
+}
+
 void eventhandler_delevent(struct eventhandler * eh, struct event * e){
 	LOG("%"PRIu64": delevent event %d ctime %d\n", rdtscl(), e->id, eventhandler_gettime(eh));
 	int j;
 	struct trigger * t;
-	for (j = 0; j < MAX_SERVERS; j++){ //TODO
+	for (j = 0; j < MAX_SERVERS; j++){
 		t = &e->triggers[j];
 		if (t->server != NULL){
 			serverdata_deltrigger(t->server, e, t);
@@ -296,7 +343,11 @@ void eventhandler_delevent(struct eventhandler * eh, struct event * e){
 		
 }
 
-void eventhandler_addlossevent(struct eventhandler * eh){
+/*
+* Adds the congestion detection event for two servers for the congestion usecase.
+* It assumes the two TCP sender servers are the first two
+*/
+void eventhandler_addlossevent(struct eventhandler * eh, __attribute__((unused))struct dc_param * param){
 	struct serverdata * servers[MAX_SERVERS]; 
 	int i, j;
 	uint32_t index;
@@ -325,13 +376,14 @@ void eventhandler_addlossevent(struct eventhandler * eh){
 		e->mask.dstip = ntohl(e->mask.dstip);
 		e->mask.ports = (ntohs(e->mask.ports>>16)<<16)|ntohs(e->mask.ports & 0xffff);
 		e->threshold = 100; //TODO
-		e->type = 3;
-				//find servers
+		e->type = 3; //types are added at the receivers before
+		//find servers
 		uint16_t servers_num = getservers_forevent(eh, e, servers);
 		if (servers_num < 2){
 			fprintf(stderr, "Eventhandler: this scenario should have 2 servers but has %d\n", servers_num);
 			continue;
 		}
+		//install triggers on the servers with half threshold
 		for (j = 0; j < 2; j++){ //TODO
 			index = servers[j]->id;
 			t = &e->triggers[index];
@@ -342,7 +394,17 @@ void eventhandler_addlossevent(struct eventhandler * eh){
 
 	}
 }
+void lossaction2(struct eventhandler * eh, struct dc_param * removedelay1){
+	uint32_t removedelay = removedelay1->num;
+	lossaction(eh, removedelay);
+}
 
+/*
+* The method runs as a result of seeing congestion for the congestion event.
+* It is used to reactively install heavy hitter detection event at the TCP receiver
+* This method assumes the TCP receiver server is the third server
+* if the removedelay is > 0, it will add a delayed command to remove this event after that delay
+*/
 void lossaction(struct eventhandler * eh, uint32_t removedelay){
 	//add udp detection on the third server
 	struct serverdata * server = eh->servers[2];
@@ -381,21 +443,26 @@ void lossaction(struct eventhandler * eh, uint32_t removedelay){
 		struct delayedcommand * dc;
 	
 		dc = MALLOC(sizeof (struct delayedcommand));
-		dc->type = dct_delevent;
-		dc->e = e;
-		dc->func = NULL;
+		dc->func = eventhandler_delevent2;
 		dc->timeus = timeus;
 		dc->next = NULL;
-		dc->param = 0;
+		dc->param.type = dcpt_pointer;
+		dc->param.pointer = e;
 		
 		eventhandler_adddc(eh, dc);
 		LOG("add dc to remove %d at %"PRIu64"\n", e->id, timeus/10000);
 	}	
 }
 
-void eventhandler_addevent(struct eventhandler * eh, uint16_t eventsnum){
+
+/*
+* Adds eventsnum number of events to all servers. 
+* This is used to implement the network-wide usecase
+*/
+void eventhandler_addevent(struct eventhandler * eh, struct dc_param * eventsnum1){
 /*	struct timespec tv;
 	clock_gettime(CLOCK_MONOTONIC, &tv);*/
+	uint16_t eventsnum = eventsnum1->num;
 	if (gbp(eventsnum) != eventsnum){
 		fprintf(stderr, "Eventhandler: Eventsnum must be power of 2 but it is %d\n", eventsnum);
 		return;
@@ -420,10 +487,10 @@ void eventhandler_addevent(struct eventhandler * eh, uint16_t eventsnum){
 		e->mask.srcip = ntohl(e->mask.srcip);
 		e->mask.dstip = ntohl(e->mask.dstip);
 		e->mask.ports = (ntohs(e->mask.ports>>16)<<16)|ntohs(e->mask.ports & 0xffff);
-		e->threshold = 8;
-		e->type = 0;
+		e->threshold = 8; //small threshold to always report
+		e->type = 0; //trigger types are installed beforehand at the recevier. type 0 is packet count
 
-		//find servers
+		//find servers & install
 		uint16_t servers_num = getservers_forevent(eh, e, servers);
 		for (j = 0; j < servers_num; j++){
 			index = servers[j]->id;
@@ -435,7 +502,9 @@ void eventhandler_addevent(struct eventhandler * eh, uint16_t eventsnum){
 	}
 }
 
-
+/*
+* when a server returns from add trigger message.
+*/
 void eventhandler_addtrigger_return(struct eventhandler * eh, uint16_t eventid, bool success, struct serverdata *server, uint32_t time __attribute__((unused))){
 	struct trigger * t;
 	struct event * e;
@@ -465,6 +534,9 @@ uint16_t eventhandler_activeservers(struct eventhandler *eh){
 	return sum;
 }
 
+/*
+* gets the elapsed time form the event handler initiation time
+*/
 inline uint64_t eventhandler_gettime_(struct eventhandler *eh){
 	const uint32_t onesec = 1000000000;
 	struct timespec tv;
@@ -478,10 +550,16 @@ inline uint64_t eventhandler_gettime_(struct eventhandler *eh){
 	return (uint64_t) a_sec * onesec  + a_nsec;
 }
 
+/*
+* get epoch number from the controller point of view
+*/
 uint32_t eventhandler_gettime(struct eventhandler * eh){
-	return eventhandler_gettime_(eh)/10000000;
+	return eventhandler_gettime_(eh)/EPOCH_NS;
 }
 
+/*
+* find an event history with specific time for an event
+*/ 
 bool findeventhistory(struct event * e, uint32_t time, struct eventhistory ** es2){
 	struct eventhistory * es;
 	for (es = e->eventhistory_head; es != NULL; es = es->next){
@@ -499,8 +577,8 @@ void getaneventhistory(struct event * e, struct trigger * t2, struct eventhistor
 	pthread_rwlock_unlock(&e->lock);
 	pthread_rwlock_wrlock(&e->lock);
 	if (!findeventhistory(e, time, &es)){ //check again as before getting the lock somebody else could have added that!
-		//I already know it is satisfaction
-		if (e->eventhistory_head != NULL && !e->eventhistory_head->valid){ //most of the time only one history per event is there
+		//I already know it is a satisfaction because the event history is not there so it cannot be the reply of a poll
+		if (e->eventhistory_head != NULL && !e->eventhistory_head->valid){ //most of the time only one history per event is there. so lets keep the first one always there, but its valid flag could be false
 			es = e->eventhistory_head;
 //			printf("event %d time %d thread %d use %p\n", e->id, time, (int) pthread_self(), es);
 		}else{
@@ -536,6 +614,9 @@ void getaneventhistory(struct event * e, struct trigger * t2, struct eventhistor
 	//pthread_rwlock_wrlock(&e->lock); // JUST FOR TEST
 }
 
+/*
+* processes an event occurance on a client, it could be by poll/query or just the client sends it
+*/
 void eventhandler_notify(struct eventhandler * eh, uint16_t eventid, struct serverdata * server, uint32_t time, char * buf, bool satisfaction_or_query, uint16_t code){
 	time = serverdata_s2ctime(server, time);
 	struct trigger * t;
@@ -565,14 +646,14 @@ void eventhandler_notify(struct eventhandler * eh, uint16_t eventid, struct serv
 	th->value = *((uint32_t *)buf);
 	int check = event_checkcondition(eh, e, es);
 	pthread_rwlock_unlock(&e->lock); //release lock after check
-	if (check >= 0){
+	if (check >= 0){ //if we received all expected replies for this eventhistory
 		//I'm done with this eventhistory
 		pthread_rwlock_wrlock(&e->lock);
 		//make sure es is not freed!
-		//check if it is still in the list!
+		//check if it is still in the list! because another thread just before getting the lock may have removed it.
 		if (findeventhistory(e, time, &es)){
 			if (e->eventhistory_head == es && es->next == NULL){
-				//don't remove it
+				//don't remove it as a performance optimization
 				es->valid = false;
 //				printf("event %d time %d thread %d notuse %p\n", es->e->id, es->time, (int) pthread_self(), es);
 			}else{
@@ -591,10 +672,12 @@ void eventhandler_notify(struct eventhandler * eh, uint16_t eventid, struct serv
 	}
 }
 
-//return -1 if cannot decide yet
+/*
+* is called whenever a valid eventhistory is received. 
+* returns -1 if not all eventhistories are received yet.
+*/
 int event_checkcondition(struct eventhandler * eh __attribute__((unused)), struct event * e, struct eventhistory * es){
-	//TODO
-	//f"ow just check if all values are received
+	//Check if all values are received
 	uint16_t i;
 	for (i = 0; i < MAX_SERVERS; i++){
 		if (e->triggers[i].server != NULL && !es->triggersmap[i].valuereceived){
@@ -614,7 +697,9 @@ int event_checkcondition(struct eventhandler * eh __attribute__((unused)), struc
 	}
 	LOG("%s\n", buf);
 	
-	if (!udpeventon && e->type == 3){ //only if this is a congestion event and we do not have a reactive yet
+// This is the part for reactive heavy hitter detection for congestion usecase. (e->type==3 is a congestion event) 
+// TODO: A better solution is to call a function from an event whenever it happens
+	if (usecase == usecase_reactivecongestion && !reactive_udpeventon && e->type == 3){ //only if this is a congestion event and we do not have a reactive yet
 		//check if all values > threshold /2
 		bool allabovethreshold = true;
 		for (i = 0; i <  2; i++){
@@ -624,7 +709,7 @@ int event_checkcondition(struct eventhandler * eh __attribute__((unused)), struc
 			}
 		}
 		if (allabovethreshold){
-			udpeventon = true;
+			reactive_udpeventon = true;
 			lossaction(eh, 100000);
 		}
 	}
@@ -652,7 +737,6 @@ struct event * event_init(struct eventhandler * eh){
 	struct event * e;
 	struct event e2e;
 	e = &e2e;
-//		printf("%d vssssss %d\n", e2->id, eh->events_num);
 
 	pthread_rwlock_init(&e->lock, NULL);
 	pthread_rwlock_wrlock(&e->lock);
@@ -674,9 +758,9 @@ struct event * event_init(struct eventhandler * eh){
 	return e;
 }
 
-
-
-//get a global lock when you call this function
+/*
+* Get a global lock when you call this function because this method destroys per event locks
+*/
 bool event_finish(void * data, void * aux __attribute__((unused))){
 	struct event * e = (struct event *) data;
 	pthread_rwlock_wrlock(&e->lock);
@@ -701,6 +785,10 @@ bool event_print(void * data, void * aux __attribute__((unused))){
 	return true;
 }
 
+/*
+* fill the buffer part of a message to the client based on the event.
+* extend this to put more event specific information into messages.
+*/
 void event_fill(struct event * e __attribute__((unused)), struct trigger * t, char * buf){
 	*buf = e->type; //type
 	buf++;
