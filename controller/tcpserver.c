@@ -78,7 +78,9 @@ int main(int argc, char **argv) {
    */
   int opt;
 
-  while ((opt = getopt(argc, argv, "p:l:s:e:")) != -1){
+  enum usecase_type u = usecase_networkwide;
+
+  while ((opt = getopt(argc, argv, "p:l:s:e:u:")) != -1){
     switch (opt) {
       case 'p':
 	portno = atof(optarg);
@@ -92,13 +94,30 @@ int main(int argc, char **argv) {
       case 'e':
 	 g.eventsnum = atof(optarg);
 	break;
+      case 'u':
+	 switch(atoi(optarg)){
+	   case 0:
+	     u = usecase_tcp;
+	     break;
+	   case 1:
+ 	     u = usecase_congestion;
+	     break;
+	   case 2:
+	     u = usecase_networkwide;
+	     break;
+	   default:
+	     printf("Unknown usecase option %d\n", atoi(optarg));
+	     abort();
+	}
+	 g.eventsnum = atof(optarg);
+	break;
       default:
          printf("Unknown option %d\n", optopt);
          abort();
       }
   }
   util_lu = loguser_init(1<<12, g.log_prefix, 14);
-  struct eventhandler * eh = eventhandler_init();
+  struct eventhandler * eh = eventhandler_init(u);
 
   /* 
    * socket: create the parent socket 

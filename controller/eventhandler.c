@@ -10,22 +10,7 @@
 #include "serverdata.h"
 #include "util.h"
 
-/*
-* 0: tcp
-* 1: reactive congestion
-* 2: proactive congestion
-* 3: network wide
-*/
-enum usecase_type{
-        usecase_tcp,
-        usecase_reactivecongestion,
-        usecase_proactivecongestion,
-	usecase_networkwide,
-};
-
-static enum usecase_type usecase =  usecase_reactivecongestion;
-
-static bool proactive_udpeventon = false;
+static bool proactive_udpeventon = false; //a hack to check if the proactive event is added or not
 static bool reactive_udpeventon = false; //a hack to see if the udp heavy hitter detection event is on or not.
 
 enum dc_param_type{
@@ -79,8 +64,9 @@ struct event * event_init(struct eventhandler * eh);
 void eventhandler_adddc(struct eventhandler * eh, struct delayedcommand * dc2);
 void eventhandler_delevent2(struct eventhandler *eh, struct dc_param * param);
 
-struct eventhandler * eventhandler_init(void){
+struct eventhandler * eventhandler_init(enum usecase_type u){
 	struct eventhandler * eh = malloc(sizeof (struct eventhandler));
+	eh->usecase = u;
 	eh->events_num = 0;
 	memset(eh->servers, 0, sizeof(eh->servers));
 	eh->eventsmap = hashmap_init(1024, 1024, sizeof(struct event), offsetof(struct event, elem), NULL);
@@ -154,12 +140,12 @@ void eventhandler_addeventdelay(struct eventhandler * eh, uint32_t eventnum, uin
 	
 //	for (i = 0; i < eventnum; i++){
 		dc = MALLOC(sizeof (struct delayedcommand));
-		if (usecase == usecase_networkwide){
+		if (eh->usecase == usecase_networkwide){
 			dc->func = eventhandler_addevent;
-		}else if (usecase == usecase_reactivecongestion || usecase == usecase_proactivecongestion){
+		}else if (eh->usecase == usecase_congestion){
 			dc->func = eventhandler_addlossevent;
 		}else{
-			fprintf(stderr, "not supported usecase %d\n", usecase);
+			fprintf(stderr, "not supported usecase %d\n", eh->usecase);
 			FREE(dc);
 			return;
 		}
@@ -205,21 +191,7 @@ void * delaycommand_thread (void *_){
 		if (time >= dc->timeus){
 			//run the command
 			dc->func(eh, &dc->param);
-		/*	switch(dc->type){
-				case dct_addevent:
-					eventhandler_addlossevent(eh);					
-				break;
-				case dct_delevent:
-					reactive_udpeventon = false;
-					eventhandler_delevent(eh, dc->e);	
-				break;
-				case dct_func:
-				break;	
-				default:
-					fprintf(stderr, "Eventhandler: Unrecognized delayedcommand type %d\n", dc->type);
-				break;
-			}*/
-			
+		
 			pthread_mutex_lock(&eh->global_mutex);
 			eh->dc = dc->next;
 			pthread_mutex_unlock(&eh->global_mutex);
@@ -256,7 +228,7 @@ void eventhandler_addserver(struct eventhandler *eh, struct serverdata *server){
 	if (server->id < MAX_SERVERS && eh->servers[server->id] == NULL){
 		eh->servers[server->id] = server;
 
-		if (usecase == usecase_proactivecongestion && server->id == 2 && !proactive_udpeventon){
+		if (eh->usecase == usecase_congestion && server->id == 2 && !proactive_udpeventon){
 			proactive_udpeventon = true;
 			uint64_t timeus = eventhandler_gettime_(eh)/1000 + 1000000;
 			struct delayedcommand * dc = MALLOC(sizeof (struct delayedcommand));
@@ -394,6 +366,7 @@ void eventhandler_addlossevent(struct eventhandler * eh, __attribute__((unused))
 
 	}
 }
+
 void lossaction2(struct eventhandler * eh, struct dc_param * removedelay1){
 	uint32_t removedelay = removedelay1->num;
 	lossaction(eh, removedelay);
@@ -699,7 +672,7 @@ int event_checkcondition(struct eventhandler * eh __attribute__((unused)), struc
 	
 // This is the part for reactive heavy hitter detection for congestion usecase. (e->type==3 is a congestion event) 
 // TODO: A better solution is to call a function from an event whenever it happens
-	if (usecase == usecase_reactivecongestion && !reactive_udpeventon && e->type == 3){ //only if this is a congestion event and we do not have a reactive yet
+	if (eh->usecase == usecase_congestion && !reactive_udpeventon && e->type == 3){ //only if this is a congestion event and we do not have a reactive yet
 		//check if all values > threshold /2
 		bool allabovethreshold = true;
 		for (i = 0; i <  2; i++){
