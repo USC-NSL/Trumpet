@@ -3,7 +3,7 @@ In this usecase, there are two servers that connect to the controller.
 Each seerver has two 10G NICs and runs two parallel TPMs, each for a port.
 We have a sender machine that sends traffic to those four ports using a single port
 This is the workflow of the experiment:
-- Upon joining of a TPM, the controller installs x number of events. The events are just packet counting with low threshold, so they will be satisfied every epoch
+- Upon joining of a TPM, the controller installs x events. The events are just packet counting with low threshold, so they will be satisfied every epoch
 - Upon satisfaction at each TPM, the TPM sends a message to the controller.
 - The controller polls all other TPMs
 - The TPM reply to the poll and the controller pocesses them. 

@@ -1,0 +1,24 @@
+#login to the terminal and type the following commands
+
+config terminal
+policy-map trumpet_p
+class class-default
+bandwidth 10000
+queue-limit 32768 bytes
+exit
+exit
+policy-map trumpet_p2
+class class-default
+service-policy trumpet_p
+exit
+exit
+policy-map trumpet_p3
+class class-default
+service-policy trumpet_p2
+exit
+exit
+interface GigabitEthernet0/1
+service-policy output trumpet_p3
+exit
+exit
+
