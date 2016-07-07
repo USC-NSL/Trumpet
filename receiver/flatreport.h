@@ -94,5 +94,9 @@ void flatreport_historyprocess(struct flatreport * fr);
 void flatreport_process(struct flatreport * fr, struct flatreport_pkt * pkt);
 void flatreport_report(struct flatreport * fr, struct trigger * t);
 void flatreport_matchforatrigger(struct flatreport * fr, struct trigger * t);
-
+void flatreport_makenotmatchingtriggers(struct flatreport * fr, uint32_t triggernum, uint32_t patterns, struct triggertype * type);
+void flatreport_makeallpatternsmatchingtriggers(struct flatreport * fr, uint32_t triggernum, uint32_t patterns, struct triggertype * type);
+void flatreport_makeperpktmatchingtriggers(struct flatreport * fr, uint32_t triggernum, uint32_t patterns, struct triggertype * type);
+void flatreport_makeperpktpatterntriggers(struct flatreport * fr, uint32_t triggernum, uint32_t patterns, struct triggertype * type);
+void flatreport_makeallmatchingtriggers(struct flatreport * fr, uint32_t triggernum, struct triggertype * type);
 #endif /* flatreport.h */

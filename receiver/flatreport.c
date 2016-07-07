@@ -482,7 +482,7 @@ inline struct summary_table * flatreport_getsummarytable(struct flatreport * fr)
 }*/
 
 
-static __attribute__((unused)) void makenotmatchingtriggers(struct flatreport * fr, uint32_t triggernum, uint32_t patterns, struct triggertype * type){
+__attribute__((unused)) void flatreport_makenotmatchingtriggers(struct flatreport * fr, uint32_t triggernum, uint32_t patterns, struct triggertype * type){
 	struct flow filter, filtermask;
 	uint32_t triggernumtillnow = 0;
 
@@ -523,7 +523,7 @@ static __attribute__((unused)) void makenotmatchingtriggers(struct flatreport * 
 	}
 }
 
-static __attribute__((unused)) void makeallpatternsmatchingtriggers(struct flatreport * fr, uint32_t triggernum, uint32_t patterns, struct triggertype * type){
+__attribute__((unused)) void flatreport_makeallpatternsmatchingtriggers(struct flatreport * fr, uint32_t triggernum, uint32_t patterns, struct triggertype * type){
 	struct flow filter, filtermask;
 	uint32_t triggernumtillnow = 0;
 
@@ -564,7 +564,7 @@ static __attribute__((unused)) void makeallpatternsmatchingtriggers(struct flatr
 	}
 }
 
-static __attribute__((unused)) void makeperpktmatchingtriggers(struct flatreport * fr, uint32_t triggernum, uint32_t patterns, struct triggertype * type){
+__attribute__((unused)) void flatreport_makeperpktmatchingtriggers(struct flatreport * fr, uint32_t triggernum, uint32_t patterns, struct triggertype * type){
 	struct flow filter, filtermask;
 	uint32_t triggernumtillnow = 0;
 	uint16_t triggerperpkt = 8;
@@ -607,7 +607,7 @@ static __attribute__((unused)) void makeperpktmatchingtriggers(struct flatreport
 }
 
 
-static __attribute__((unused)) void makeperpktpatterntriggers(struct flatreport * fr, uint32_t triggernum, uint32_t patterns, struct triggertype * type){
+__attribute__((unused)) void flatreport_makeperpktpatterntriggers(struct flatreport * fr, uint32_t triggernum, uint32_t patterns, struct triggertype * type){
 	struct flow filter, filtermask;
 	uint32_t triggernumtillnow = 0;
 	uint16_t triggerperpkt = 8;
@@ -652,7 +652,7 @@ static __attribute__((unused)) void makeperpktpatterntriggers(struct flatreport 
 
 
 
-static __attribute__((unused)) void makeallmatchingtriggers(struct flatreport * fr, 
+__attribute__((unused)) void flatreport_makeallmatchingtriggers(struct flatreport * fr, 
 uint32_t triggernum, struct triggertype * type){
 	struct flow filter, filtermask;
 	uint32_t triggernumtillnow = 0;
@@ -691,13 +691,13 @@ void flatreport_addtriggers_profilematching(struct flatreport * fr, uint32_t tri
 	
 	struct triggertype * type =  triggertype_init(0, pktnum_trigger_update, counter_trigger_report, counter_trigger_free, counter_trigger_reset, counter_trigger_print, 1, summaries, 1, counter_trigger_condition, 30);
 	triggertable_addtype(fr->tt, type);
-//	makeallpatternsmatchingtriggers(fr, triggernum, patterns, type);
-//	makeperpktmatchingtriggers(fr, triggernum, patterns, type);
-//	makeperpktpatterntriggers(fr, triggernum, patterns, type);
+//	flatreport_makeallpatternsmatchingtriggers(fr, triggernum, patterns, type);
+//	flatreport_makeperpktmatchingtriggers(fr, triggernum, patterns, type);
+//	flatreport_makeperpktpatterntriggers(fr, triggernum, patterns, type);
 
-	makeallmatchingtriggers(fr, 8, type);	
+	flatreport_makeallmatchingtriggers(fr, 8, type);	
 	if (triggernum > 8){
-		makenotmatchingtriggers(fr, triggernum-8, patterns, type);
+		flatreport_makenotmatchingtriggers(fr, triggernum-8, patterns, type);
 	}
 }
 
