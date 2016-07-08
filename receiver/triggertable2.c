@@ -87,7 +87,7 @@ void triggertable_newtriggerflowlistpool(struct triggertable * tt){
 	tflp->tfl = tfl;
 	tflp->next = tt->pools;
 	tt->pools = tflp;
-	printf("got a new pool at %p\n", tflp->tfl);
+	//printf("got a new pool at %p\n", tflp->tfl);
 }
 
 void triggertable_finish(struct triggertable * tt){

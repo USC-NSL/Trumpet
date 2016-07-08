@@ -1,3 +1,4 @@
+%columns in the script are #patterns, dospackets fraction, threshold, #packets, #loss, #unfinished sweeps
 x=csvread('dosmeasure3.txt');
 d = unique(x(:,1));
 d2 = unique(x(:,2));
@@ -7,10 +8,9 @@ noloss = x(:,5)<10e4;
 nonotfinish = x(:,6)<2;
 clear m; for i = 1:length(d), for j = 1:length(d2), di = d(i); d2i = d2(j); m(i,j,:)=[di,d2i,min(x(and(and(x(:,1)==di,x(:,2)==d2i),and(and(couldrun, noloss),nonotfinish)),3))]; end; end;
 
-budget =  [31772834447 23302599043 16409706978.5 10280450287]/20; % todrain
-budget16 =  [30830515629 22032252984 14918337700.5 14918337700]/20; % todrain
+budget =  [31772834447 23302599043 16409706978.5 10280450287]/20; % todrain, for different % of dos traffic
 sweep = 100;
-nomatch = [376 570 942 1884];
+nomatch = [376 570 942 1884];% for different # patterns
 match = [607 906 1446 2456]; %from run
 flowlen = 10;
 matchperflow = 8;

@@ -1045,6 +1045,60 @@ static void packethistoryloop(struct measurementthread * mt){
         }
 }
 
+
+static __attribute__((unused)) void runForZerots(struct measurementthread * mt){
+	struct flatreport * fr = mt->fr;
+	int16_t todrain = 0;
+	uint16_t nb_rx, i;
+	struct rte_mbuf *bufs[BURST_SIZE];
+	mt->stat_zerots = 0;
+	__attribute__((unused)) uint64_t ts, ts2, ts3;
+	ts3 = ts2 = ts = 0;
+	const int target = 24;
+//	int nb_rx2;
+	__attribute__((unused))	int n, statn1, statn2;
+	statn1 = statn2 = 0;
+//	int readstatnum = 0;
+//	uint64_t readstatsum = 0;
+//	uint64_t queuecountoverhead = 0;
+//	uint64_t queuecountoverheadnum = 0;
+	__attribute__((unused)) const int call32delay = 1000;
+        while (!mt->finish && mt->pkts_num < mt->target) {
+        	// doesn't work as nb_rx can be small even though there are packets there!
+//		ts = rte_rdtsc();
+//		nb_rx = rte_eth_rx_burst(mt->port, mt->queue, bufs, BURST_SIZE);
+//		if (nb_rx < target && experiment_isstarted(mt) && mt->pkts_num < mt->target - 32){
+//			do{
+//                     			nb_rx += rte_eth_rx_burst(mt->port, mt->queue, bufs + nb_rx, BURST_SIZE);
+//			}while (nb_rx < target && !mt->finish);
+//			ts2 = rte_rdtsc();
+//			mt->stat_zerots += ts2 - ts;// - call32delay;
+//		}
+				
+		if (todrain < target && experiment_isstarted(mt) && mt->pkts_num < mt->target-32){
+			ts = rte_get_tsc_cycles();
+			do{
+				todrain = rte_eth_rx_queue_count(mt->port, mt->queue);
+				if (todrain >= target){
+					break;
+				}
+			}while (todrain < target && !mt->finish);
+			mt->stat_zerots += rte_get_tsc_cycles() - ts + 45; //45 for rte_rdtsc 
+		}
+		nb_rx = rte_eth_rx_burst(mt->port, mt->queue, bufs, BURST_SIZE);
+//		if ((todrain >= 32 && nb_rx<32) || (todrain<32 && nb_rx>0)){printf("error %d %d\n",todrain, nb_rx);}
+		todrain -= nb_rx;
+                readpackets(bufs, nb_rx, mt);
+                mt->pkts_num += nb_rx;
+		for (i = 0; i < nb_rx; i++){
+	               	rte_pktmbuf_free(bufs[i]);
+		}
+	}
+	LOG("profilezerots: %"PRIu64"\n", mt->stat_zerots); //, 1.0 * statn2/statn1, 1.0*readstatsum/readstatnum,readstatnum );
+	printstats(mt);
+	flatreport_finish(fr);
+}
+
 /*
  * The lcore main. This is the main thread that does the work, reading from
  * an input port and writing to an output port.
@@ -1159,54 +1213,8 @@ static int lcore_main(void *_){
 		todrain = 0;
 
 ///////////////////////////////////////////////////////////////////// PROFILE ZEROTS : Remember to change checkflow too
-/*		todrain = 0;
-		mt->stat_zerots = 0;
-		__attribute__((unused)) uint64_t ts, ts2, ts3;
-		ts3 = ts2 = ts = 0;
-		const int target = 24;
-//		int nb_rx2;
-		__attribute__((unused))	int n, statn1, statn2;
-		statn1 = statn2 = 0;
-//		int readstatnum = 0;
-//		uint64_t readstatsum = 0;
-//		uint64_t queuecountoverhead = 0;
-//		uint64_t queuecountoverheadnum = 0;
-		__attribute__((unused)) const int call32delay = 1000;
-           	    while (!mt->finish && mt->pkts_num < mt->target) {
-                       // doesn't work as nb_rx can be small even though there are packets there!
-//			ts = rte_rdtsc();
-//			nb_rx = rte_eth_rx_burst(mt->port, mt->queue, bufs, BURST_SIZE);
-//			if (nb_rx < target && experiment_isstarted(mt) && mt->pkts_num < mt->target - 32){
-//				do{
-//                      			nb_rx += rte_eth_rx_burst(mt->port, mt->queue, bufs + nb_rx, BURST_SIZE);
-//				}while (nb_rx < target && !mt->finish);
-//				ts2 = rte_rdtsc();
-//				mt->stat_zerots += ts2 - ts;// - call32delay;
-//			}
-				
-			if (todrain < target && experiment_isstarted(mt) && mt->pkts_num < mt->target-32){
-				ts = rte_get_tsc_cycles();
-				do{
-					todrain = rte_eth_rx_queue_count(mt->port, mt->queue);
-					if (todrain >= target){
-						break;
-					}
-				}while (todrain < target && !mt->finish);
-				mt->stat_zerots += rte_get_tsc_cycles() - ts + 45; //45 for rte_rdtsc 
-			}
-			nb_rx = rte_eth_rx_burst(mt->port, mt->queue, bufs, BURST_SIZE);
-//			if ((todrain >= 32 && nb_rx<32) || (todrain<32 && nb_rx>0)){printf("error %d %d\n",todrain, nb_rx);}
-			todrain -= nb_rx;
-                        readpackets(bufs, nb_rx, mt);
-                        mt->pkts_num += nb_rx;
-			for (i = 0; i < nb_rx; i++){
-	                	rte_pktmbuf_free(bufs[i]);
-			}
-		}
-		LOG("profilezerots: %"PRIu64"\n", mt->stat_zerots); //, 1.0 * statn2/statn1, 1.0*readstatsum/readstatnum,readstatnum );
-		printstats(mt);
-		flatreport_finish(fr);
-		return 0;*/
+//		runForZerots(mt);
+//		return 0;
 /////////////////////////////////////////////////////////////////////////
 #if USEKNI
                 while (!mt->finish && mt->pkts_num < mt->target) {

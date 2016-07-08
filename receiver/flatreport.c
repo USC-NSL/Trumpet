@@ -121,7 +121,7 @@ inline struct flowentry * checkflow(struct flatreport * fr, struct flatreport_pk
 	if (fr->lastpktisddos){
 		return NULL;
 	}
-//	fr->lastpktisddos = true; return NULL; //FIXME
+//	fr->lastpktisddos = true; return NULL; //uncomment for zerots
 //	uint64_t s = rte_rdtsc();
 /*	if (!matchanytrigger(fr, pkt)){
 		return NULL;
