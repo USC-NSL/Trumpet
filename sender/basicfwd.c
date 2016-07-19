@@ -1067,6 +1067,22 @@ static void readdstmacs(int nb_ports){
    fclose(file);
 }
 
+static void printhelp(void){
+	printf("This is help for the commandline parameters for the traffic generator (sender). The generator is developed to test Trumpet performance metrics using 10G ports\n");
+	printf("\t -r <num>     : packet rate (default 14880000)\n");
+	printf("\t -t <num>     : the number of packets (default 500000000)\n");
+	printf("\t -f <num>     : the average number of active flows (default 300)\n");
+	printf("\t -a <num>     : average flow arrival rate (default 1000)\n");
+	printf("\t -S <num>     : packet size in bytes (default 64)\n");
+	printf("\t -b <num>     : the number of consecutive packets comming from the same flow (burst) (default 1)\n");
+	printf("\t -D <double>  : the fraction of DoS packets (default 0)\n");
+	printf("\t -l <num>     : the number of packets per DoS flow. Each packet is 64 bytes. (default 1)\n");
+	printf("\t -R <num>     : random  seed selection between 0 and 15 (default 0)\n");
+	printf("\t -p <num>     : port mask (default 1)\n");
+	printf("\t -s <num>     : to shift the source IP address of generated packets in the third octet, so one shifts 1<<24 (default 0)\n");
+	printf("\t -h           : prints this help\n");
+}
+
 /*
  * The main function, which does initialization and calls the per-lcore
  * functions.
@@ -1101,7 +1117,7 @@ int main(int argc, char *argv[]) {
 
 	int opt;
 
-	while ((opt = getopt(argc, argv, "r:t:b:D:l:f:R:a:p:s:S:")) != -1) {
+	while ((opt = getopt(argc, argv, "r:t:b:D:l:f:R:a:p:s:S:h")) != -1) {
 		switch (opt) {
 		case 'r':
 			g.rate = atof(optarg);
@@ -1135,6 +1151,10 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'S':
 			g.pg1size = atof(optarg);
+			break;
+		case 'h':
+			printhelp();
+			abort();
 			break;
 		default:
 			printf("Unknown option %d\n", optopt);

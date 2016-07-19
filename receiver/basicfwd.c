@@ -1351,6 +1351,23 @@ static void int_handler(int sig_num){
 	}
 }
 
+static void printhelp(void){
+	printf("Here is the description of the commandline parameters of TPM module for Trumpet. Please refer to the documentation and experiment guidelines for more information. \n");
+	printf("\t -t <num>    : the number of triggers (default 0)\n");
+	printf("\t -p <num>    : the number of triggers per flow (default 0)\n");
+	printf("\t -n <num>    : the number of expect packets (default 100000000)\n");
+	printf("\t -d <double> : the fraction of second for each step of the multi-step sweep (default 0.000005)\n");
+	printf("\t -P <num>    : the number of wildecard patterns for triggers (default 1)\n");
+	printf("\t -T <num>    : the threshold for the flow filter table (DoS resiliency) in bytes (default 0)\n");
+	printf("\t -z <num>    : the size of flow filter table (default 1048576 (as 2^20))\n");
+	printf("\t -w <num>    : number of workers to consume packets (default 0)\n");
+	printf("\t -c <IP>     : controller IP (default 127.0.0.1)\n");
+	printf("\t -C <num>    : controller port (default 5000)\n");
+	printf("\t -i <num>    : periodic phase (sweep) interval in ms (default 10)\n");
+	printf("\t -l <string> : log prefix (default 'log')\n");
+	printf("\t -h          : prints this help\n");
+}
+
 /*
  * The main function, which does initialization and calls the per-lcore
  * functions.
@@ -1386,7 +1403,7 @@ int main(int argc, char *argv[]){
 
 	int opt;
 
-	while ((opt = getopt(argc, argv, "n:p:t:d:P:T:C:w:c:z:l:i:")) != -1) {
+	while ((opt = getopt(argc, argv, "n:p:t:d:P:T:C:w:c:z:l:i:h")) != -1) {
 		switch (opt) {
 			case 't':
 				g.trigger_num = atof(optarg);
@@ -1423,6 +1440,10 @@ int main(int argc, char *argv[]){
 				break;
 			case 'l':
 				snprintf(g.log_prefix, 50, "%s", optarg);
+				break;
+			case 'h':
+				printhelp();
+				abort();
 				break;
 		      default:
 			printf("Unknown option %d\n", optopt);

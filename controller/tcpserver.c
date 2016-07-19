@@ -51,6 +51,16 @@ static void int_handler(int sig_num){
 	g.finish = true;
 }
 
+static void printhelp(void){
+	printf("This is the manual for the commandline parameters of the controller side in Trumpet.\n");
+	printf("\t -p <num>     : port number (default 5000)\n");
+	printf("\t -l <string>  : log prefix (default 'log')\n");
+	printf("\t -u <num>     : the index of the usecase. 0 is TCP burst and loss, 1 is the TCP congestion example and 2 is the network-wide example (default 2)\n");
+	printf("\t -s <num>     : number of servers for the network-wide example (default 4)\n");
+	printf("\t -e <num>     : number of events to add for network-wide usecase (default 16)\n");
+	printf("\t -h           : prints this help\n");
+}
+
 int main(int argc, char **argv) {
   int ret = rte_eal_init(argc, argv);
         if (ret < 0)
@@ -80,7 +90,7 @@ int main(int argc, char **argv) {
 
   enum usecase_type u = usecase_networkwide;
 
-  while ((opt = getopt(argc, argv, "p:l:s:e:u:")) != -1){
+  while ((opt = getopt(argc, argv, "p:l:s:e:u:h")) != -1){
     switch (opt) {
       case 'p':
 	portno = atof(optarg);
@@ -109,7 +119,10 @@ int main(int argc, char **argv) {
 	     printf("Unknown usecase option %d\n", atoi(optarg));
 	     abort();
 	}
-	 g.eventsnum = atof(optarg);
+	break;
+       case 'h':
+	printhelp();
+	abort();
 	break;
       default:
          printf("Unknown option %d\n", optopt);
