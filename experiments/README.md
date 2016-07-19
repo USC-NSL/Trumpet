@@ -4,7 +4,7 @@ Here, we describe how to setup dpdk and the code.
 - Open the archive, say in your home folder
 - You need hugepages. Install hugepages package. In ubuntu use "sudo apt-get install hugepages"
 - You also need compiling libraries. Just install build-essential package
-- Now you can use the script provided in tools/setup.sh file of dpdk to set it up
+- Now you can use the script provided in <DPDKFolder>tools/setup.sh file to set it up
 - Compile: On linux and 64-bit machines, type number 14 for "x86_64-native-linuxapp-gcc"
 - Install NIC driver module: type number 17 for "Insert IGB UIO module"
 - Install KNI module: type number 19 for "Insert KNI module"
@@ -23,3 +23,6 @@ You can reverse the config by running the tools/setup.sh again and
 - Unbind nics: 29 for "Unbind NICs from IGB UIO or VFIO driver". You may be asked to type the  name of the driver to put the port back to it. For the above exxample it is ixgbe
 - Unload IGB and KNI using 30 and 32
 - Remove huge pages using number 33
+
+
+You may start with the experiments/base10.
