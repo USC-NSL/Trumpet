@@ -16,7 +16,11 @@ Here, we describe how to setup dpdk and the code.
 - Now add the following lines at the end of .bashrc file in your home folder. Replace <PATH TO DPDK> with the path of where you put the dpdk folder
  - export RTE_SDK=<PATH TO DPDK>
  - export RTE_TARGET=x86_64-native-linuxapp-gcc
-- Now open a new terminal or run "bash", to read the setting again
+- Now we need to isolate CPU cores for Trumpet from other processes. We can do that by adding the following line into /etc/default/grub.
+ - This command isolates cores with odd number (cores on CPU 1 on a NUMA architecture). Add it to the file. GRUB_CMDLINE_LINUX="iommu=pt intel_iommu=on isolcpus=1,3,5,7,9,11,13,15,17,19" 
+ - If you are using a NUMA architecture, you first need to find out the NIC is connected to which CPU. Processing the packets on the CPU that is directly connected to the NIC is faster. For this run "cat /sys/class/net/eth6/device/numa_node" assuming the NIC is eth6. If it is CPU 0, you also need to update the core mask in the dpdk parameter list passed inside run.sh.
+ - run sudo grub-update, and reboot.
+- Also make sure that you have sudo access
 
 Done.
 You can reverse the config by running the tools/setup.sh again and
