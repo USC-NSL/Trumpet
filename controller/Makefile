@@ -42,7 +42,7 @@ include $(RTE_SDK)/mk/rte.vars.mk
 APP = tcpserver
 
 # all source are stored in SRCS-y
-SRCS-y := tcpserver.c util.c eventhandler.c serverdata.c hashmap.c bitmap.c flow.c lookup3.c loguser.c
+SRCS-y := tcpserver.c util.c eventhandler.c serverdata.c hashmap.c bitmap.c flow.c lookup3.c loguser.c usecase.c
 
 CFLAGS += $(WERROR_FLAGS)
 

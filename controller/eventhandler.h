@@ -14,7 +14,36 @@
 
 
 struct serverdata;
-struct delayedcommand;
+struct usecase;
+struct eventhandler;
+
+enum dc_param_type{
+	dcpt_num,
+	dcpt_pointer,
+};
+
+struct dc_param{
+	union{
+		uint64_t num;
+		void * pointer;
+	};
+	enum dc_param_type type;
+};
+
+typedef void (*dc_func)(struct eventhandler * eh, struct dc_param * param);
+
+/*
+* The data structure to represent a delayed command. 
+* The command action is specified by its type. The general one dtc_func can run any function 
+* with a param. A simple improvement could be to remove the type and just use the function.
+*/
+struct delayedcommand{
+	uint64_t timeus;
+	void * next;
+	dc_func func;
+	struct dc_param param;
+};
+
 
 struct trigger{
 	struct serverdata * server; // unique among triggers of an event
@@ -51,17 +80,6 @@ struct eventhistory{
 	struct triggerhistory triggersmap [MAX_SERVERS]; //a triggerhisotry per server (as a prototype)
 };
 
-/*
-* 0: tcp
-* 2: congestion
-* 3: network wide
-*/
-enum usecase_type{
-        usecase_tcp,
-        usecase_congestion,
-	usecase_networkwide,
-};
-
 struct eventhandler{
 	struct hashmap * eventsmap;
 	struct timespec inittime; // the initiation time of the controller. All epochs at the controller must be calculated based ont this initiation time
@@ -72,21 +90,29 @@ struct eventhandler{
 	bool dc_finish; //tell the delaycommand thread to stop
 	pthread_t dc_pth; // just runs delayed commands
 	struct serverdata * servers[MAX_SERVERS]; //An array of servers just for prototype. An entry could be null if the server with that ID is not yet contacted the controller.
-	enum usecase_type usecase;
+	struct usecase * u;
 };
-void eventhandler_syncepoch(int ms);
+struct delayedcommand * delayedcommand_init(uint64_t timeus);
+void delayedcommand_finish(struct delayedcommand * dc);
+	
 
-struct eventhandler * eventhandler_init(enum usecase_type u);
+void eventhandler_syncepoch(int ms);
+struct eventhandler * eventhandler_init(struct usecase * u);
 void eventhandler_finish(struct eventhandler * eh);
-void eventhandler_addeventdelay(struct eventhandler * eh, uint32_t eventnum, uint32_t delayus);
 void eventhandler_delevent(struct eventhandler * eh, struct event * e);
 void eventhandler_addtrigger_return(struct eventhandler * eh, uint16_t eventid, bool success, struct serverdata *server, uint32_t time);
 void eventhandler_notify(struct eventhandler * eh, uint16_t eventid, struct serverdata * server, uint32_t time, char * buf, bool satisfaction_or_query, uint16_t code);
 uint32_t eventhandler_gettime(struct eventhandler * eh);
+uint64_t eventhandler_gettime_(struct eventhandler *eh);
 void eventhandler_addserver(struct eventhandler *eh, struct serverdata *server);
 void eventhandler_removeserver(struct eventhandler *eh, struct serverdata * server);
 uint16_t eventhandler_activeservers(struct eventhandler *eh);
+void eventhandler_adddc(struct eventhandler * eh, struct delayedcommand * dc2);
 
 void event_fill(struct event * e, struct trigger * t, char * buf);
+uint16_t eventhandler_getserversforevent(struct eventhandler * eh, struct event * e, struct serverdata ** servers);
+
+
+struct event * event_init(struct eventhandler * eh);
 
 #endif /* eventhandler.h */

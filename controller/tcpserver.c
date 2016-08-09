@@ -27,6 +27,7 @@
 #include "eventhandler.h"
 #include "util.h"
 #include "loguser.h"
+#include "usecase.h"
 
 
 struct globalconfig{
@@ -37,14 +38,6 @@ struct globalconfig{
 };
 
 static struct globalconfig g;
-
-/*static void * addevent_delay (void *_){
-	struct eventhandler * eh = (struct eventhandler *) _;
- 	sleep(1);
-
-	eventhandler_addlossevent(eh);
-	return NULL;
-}*/
 
 static void int_handler(int sig_num){
 	printf("signal %d\n", sig_num);
@@ -88,7 +81,7 @@ int main(int argc, char **argv) {
    */
   int opt;
 
-  enum usecase_type u = usecase_networkwide;
+  uint16_t ui = 2;
 
   while ((opt = getopt(argc, argv, "p:l:s:e:u:h")) != -1){
     switch (opt) {
@@ -105,21 +98,12 @@ int main(int argc, char **argv) {
 	 g.eventsnum = atof(optarg);
 	break;
       case 'u':
-	 switch(atoi(optarg)){
-	   case 0:
-	     u = usecase_tcp;
-	     break;
-	   case 1:
- 	     u = usecase_congestion;
-	     break;
-	   case 2:
-	     u = usecase_networkwide;
-	     break;
-	   default:
-	     printf("Unknown usecase option %d\n", atoi(optarg));
+	 ui = atoi(optarg);
+	 if (ui != 1 && ui != 2){
+	     printf("Unknown usecase option %d\n", ui);
 	     abort();
-	}
-	break;
+	 }
+	 break;
        case 'h':
 	printhelp();
 	abort();
@@ -130,6 +114,15 @@ int main(int argc, char **argv) {
       }
   }
   util_lu = loguser_init(1<<12, g.log_prefix, 14);
+  struct usecase * u = NULL;
+  if (ui == 1){
+	u = usecase_congestion_init(); 
+  }else if (ui == 2){
+	u = usecase_netwide_init(addeventforservers,g.eventsnum);
+  }else{
+	printf("Unknown usecase\n");
+	abort();
+  }
   struct eventhandler * eh = eventhandler_init(u);
 
   /* 
@@ -228,12 +221,10 @@ int main(int argc, char **argv) {
 	g.servernum++;
 	eventhandler_addserver(eh, server);
     }
-	if (eventhandler_activeservers(eh) == addeventforservers){
-	  /*  pthread_t p;
-	    pthread_create(&p, NULL, (void *)addevent_delay, (void *)eh); */
+/*	if (eventhandler_activeservers(eh) == addeventforservers){
 		//add the event after some delay so that the servers are setup correctly 
 		eventhandler_addeventdelay(eh, g.eventsnum, 1000000);
-	}
+	}*/
   }
 
 ////////////////////////////////////////////////// close
