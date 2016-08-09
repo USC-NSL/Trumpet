@@ -82,6 +82,7 @@ void usecase_netwide_finish(struct usecase * u){
 
 struct usecase * usecase_netwide_init(uint16_t targetservers, uint16_t eventsnum){
 	struct usecase_netwide * u2 = MALLOC(sizeof(struct usecase_netwide));
+	u2->u.u2 = u2;
 	u2->u.atserverjoin = usecase_netwide_atserverjoin;
 	u2->u.ateventsatisfaction = usecase_netwide_ateventsatisfaction;
 	u2->u.finish = usecase_netwide_finish;
@@ -275,6 +276,7 @@ void usecase_congestion_finish(struct usecase * u){
 
 struct usecase * usecase_congestion_init(void){
 	struct usecase_congestion * u2 = MALLOC(sizeof(struct usecase_congestion));
+	u2->u.u2 = u2;
 	u2->u.atserverjoin = usecase_congestion_atserverjoin;
 	u2->u.ateventsatisfaction = usecase_congestion_ateventsatisfaction;
 	u2->u.finish = usecase_congestion_finish;

@@ -18,8 +18,8 @@ To run the experiment:
 - The generator will use four different queues at the NIC to send to those four ports at the TPMs. Set MULTIPORT to 0 in sender/basicfwd.c and compile it.
 - I assume the controller IP is 192.168.0.1. Note that this means we are using out of band controller. but you can use in-band controller connection too, by enabling the receiver to use KNI (look at the congestion usecase). You can run the controller at the sender machine.
 - I assume we want 16 events. You need to run the experiment for 4, 16, 64 and 256 events to get the result in the paper.
+- At controller run: e=16; sudo -E ./build/tcpserver -c 0x5555 -n 4 --file-prefix=controller_ -m 128 -- -s 4 -l netwide_$e -e $e -u 2
 - At both receivers run:  sudo -E build/basicfwd -c 0xaaaa -n 4 -- -t 0 -p 0 -P 32 -n 297610000 -d 0.000005 -c 192.168.0.1 -l netwide_16
-- At controller run: e=16; sudo -E ./build/tcpserver -c 0x5555 -n 4 --file-prefix=controller_ -m 128 -- -s 4 -l netwide_$e -e $e -u 3
 - At sender you need to set the MAC address of the four ports at servers in the dstmac.txt. I used the dstmac.txt file provided in this folder
 - At sender run: sudo -E build/basicfwd -c 0xaaaa -n 4  --file-prefix=sender_ -m 128 -- -t 800000 -p 15
 

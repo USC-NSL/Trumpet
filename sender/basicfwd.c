@@ -996,14 +996,14 @@ int initsenderthreads(int ports){
 	int i;
 	int num = 0;
 	int ports2 = ports;
-	for (i = 0; ports > 0; ports>>=1, i++){
-		if ((ports & 0x01) == 0){
+	for (i = 0; ports2 > 0; ports2>>=1, i++){
+		if ((ports2 & 0x01) == 0){
 			continue;
 		}
 		num++;
 	}
-	ports = ports2; //bring back original ports value
 	int id = 0;
+	__attribute__((unused)) int q = 0;
 	for (i = 0; ports > 0; ports>>=1, i++){
 		if ((ports & 0x01) == 0){
 			continue;
@@ -1017,7 +1017,7 @@ int initsenderthreads(int ports){
 		st->queue = 0;
 #else
 		st->port = 0;
-		st->queue = num;
+		st->queue = q++;
 #endif
 		st->finish = false;
 		st->pg = NULL;

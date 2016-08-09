@@ -44,6 +44,7 @@ void delayedcommand_finish(struct delayedcommand * dc){
 struct eventhandler * eventhandler_init(struct usecase * u){
 	struct eventhandler * eh = MALLOC(sizeof (struct eventhandler));
 	eh->u = u;
+	u->eh = eh;
 	eh->events_num = 0;
 	memset(eh->servers, 0, sizeof(eh->servers));
 	eh->eventsmap = hashmap_init(1024, 1024, sizeof(struct event), offsetof(struct event, elem), NULL);
@@ -97,7 +98,9 @@ void eventhandler_adddc(struct eventhandler * eh, struct delayedcommand * dc2){
 	pthread_mutex_lock(&eh->global_mutex);
 
 	//find the position to insert the delayed commmand
-	for (dc_prev = NULL, dc = eh->dc; dc != NULL && dc->timeus <= dc2->timeus; dc_prev = dc, dc = dc->next); //find dc
+
+	for (dc_prev = NULL, dc = eh->dc; dc != NULL && dc->timeus <= dc2->timeus; dc_prev = dc, dc = dc->next){ //find dc
+	}
 	if (dc_prev == NULL){
 		eh->dc = dc2;
 	}else{
@@ -130,8 +133,9 @@ void eventhandler_syncepoch(int ms){
 void * delaycommand_thread (void *_){
         struct eventhandler * eh = (struct eventhandler *)_;
 	uint64_t time;
+	struct delayedcommand * dc;
 	while (!eh->dc_finish){
-		struct delayedcommand * dc = eh->dc;
+		dc = eh->dc;
 		//no delayed command thus wait on the semaphore
 		if (dc == NULL){
 			sem_wait(&eh->dc_sem);
