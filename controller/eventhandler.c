@@ -17,18 +17,17 @@ int findtrigger(struct eventhandler * eh, uint16_t eventid, struct serverdata * 
 uint32_t event_hash(void * data);
 bool event_equal(void * data1, void * data2, void * aux);
 bool event_finish(void * data, void * aux);
+struct event * event_init(struct event * e);
 bool event_equalid(void * data1, void * data2, void * aux);
 void eventhistory_finish(struct eventhistory * es);
 void resetevents(struct eventhandler * eh);
-bool event_print(void * data, void * aux);
 bool eventhistory_triggerhistory_init(void * data, void * aux);
 bool findeventhistory(struct event * e, uint32_t time, struct eventhistory ** es2);
 void getaneventhistory(struct event * e, struct trigger * t2, struct eventhistory **es2, uint32_t time);
 void * delaycommand_thread (void *_);
 
-void eventhandler_addevent(struct eventhandler * eh, struct dc_param * eventsnum1);
 void eventhandler_addlossevent(struct eventhandler * eh, struct dc_param * param);
-struct event * event_init(struct eventhandler * eh);
+struct event * event_init(struct event * e);
 
 struct delayedcommand * delayedcommand_init(uint64_t timeus){
 	struct delayedcommand * dc = MALLOC(sizeof (struct delayedcommand));
@@ -61,6 +60,7 @@ struct eventhandler * eventhandler_init(struct usecase * u){
 	eventhandler_syncepoch(10);
 	clock_gettime(CLOCK_MONOTONIC, &eh->inittime);
 	pthread_create(&eh->dc_pth, NULL, (void *)delaycommand_thread, (void *)eh);
+	u->start(u);
 	return eh;
 }
 
@@ -250,6 +250,17 @@ void eventhandler_delevent(struct eventhandler * eh, struct event * e){
 	hashmap_remove(eh->eventsmap, e);
 	pthread_mutex_unlock(&eh->global_mutex);
 		
+}
+
+struct event * eventhandler_getevent(struct eventhandler * eh){
+	struct event e2e;
+	struct event * e = &e2e;
+	pthread_mutex_lock(&eh->global_mutex);	
+	e->id = eh->events_num++;
+	//get the pointer to the event inside the hashmap
+	e = hashmap_add2(eh->eventsmap, e, event_hash(e), event_equal, NULL, NULL);//add it to the map before telling the servers
+	pthread_mutex_unlock(&eh->global_mutex);	
+	return event_init(e);
 }
 
 /*
@@ -468,11 +479,7 @@ void eventhistory_finish(struct eventhistory * es){
 	free (es);
 }
 
-struct event * event_init(struct eventhandler * eh){
-	struct event * e;
-	struct event e2e;
-	e = &e2e;
-
+struct event * event_init(struct event * e){
 	pthread_rwlock_init(&e->lock, NULL);
 	pthread_rwlock_wrlock(&e->lock);
 		
@@ -484,12 +491,6 @@ struct event * event_init(struct eventhandler * eh){
 	}
 
 	pthread_rwlock_unlock(&e->lock);
-
-	pthread_mutex_lock(&eh->global_mutex);	
-	e->id = eh->events_num++;
-	e = hashmap_add2(eh->eventsmap, e, event_hash(e), event_equal, NULL, NULL);//add it to the map before telling the servers
-	pthread_mutex_unlock(&eh->global_mutex);	
-	
 	return e;
 }
 

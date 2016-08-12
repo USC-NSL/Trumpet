@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
 	break;
       case 'u':
 	 ui = atoi(optarg);
-	 if (ui != 1 && ui != 2){
+	 if (ui != 1 && ui != 2 && ui != 3){
 	     printf("Unknown usecase option %d\n", ui);
 	     abort();
 	 }
@@ -118,7 +118,9 @@ int main(int argc, char **argv) {
   if (ui == 1){
 	u = usecase_congestion_init(); 
   }else if (ui == 2){
-	u = usecase_netwide_init(addeventforservers,g.eventsnum);
+	u = usecase_netwide_init(addeventforservers, g.eventsnum);
+  }else if (ui == 3){
+	u = usecase_file_init("testevents.txt", addeventforservers);
   }else{
 	printf("Unknown usecase\n");
 	abort();

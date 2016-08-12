@@ -58,6 +58,7 @@ struct event{
 	uint32_t id; //unique among events
 	struct flow mask;
 	uint32_t threshold;
+	uint16_t timeinterval;
 	hashmap_elem elem;
 	struct eventhistory * eventhistory_head; // a link list of the event occurances
 	struct trigger triggers [MAX_SERVERS]; //keep a trigger position for each server. it is filled if the server ponter is not null. A simple & fast implementation just as a prototype, it could be a hashmap in production
@@ -100,6 +101,7 @@ void eventhandler_syncepoch(int ms);
 struct eventhandler * eventhandler_init(struct usecase * u);
 void eventhandler_finish(struct eventhandler * eh);
 void eventhandler_delevent(struct eventhandler * eh, struct event * e);
+struct event * eventhandler_getevent(struct eventhandler * eh);
 void eventhandler_addtrigger_return(struct eventhandler * eh, uint16_t eventid, bool success, struct serverdata *server, uint32_t time);
 void eventhandler_notify(struct eventhandler * eh, uint16_t eventid, struct serverdata * server, uint32_t time, char * buf, bool satisfaction_or_query, uint16_t code);
 uint32_t eventhandler_gettime(struct eventhandler * eh);
@@ -111,8 +113,8 @@ void eventhandler_adddc(struct eventhandler * eh, struct delayedcommand * dc2);
 
 void event_fill(struct event * e, struct trigger * t, char * buf);
 uint16_t eventhandler_getserversforevent(struct eventhandler * eh, struct event * e, struct serverdata ** servers);
+bool event_print(void * data, void * aux);
 
 
-struct event * event_init(struct eventhandler * eh);
 
 #endif /* eventhandler.h */
