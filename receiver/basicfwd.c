@@ -992,7 +992,7 @@ static void measurementthread_prepare(struct measurementthread * mt){
 	}
 #endif
 	usleep(mt->id * 100); // just to order ids at the controller!
-	struct client * c = client_init(g.controllerip, g.controllerport, 17, true);
+	struct client * c = client_init(g.controllerip, g.controllerport);
 	mt->fr = flatreport_init(dt, c);
 
 	struct triggertype * types [4];
@@ -1199,13 +1199,8 @@ static int lcore_main(void *_){
 				mt->stat_mstepsum++;
 				mt->stat_mstepduration += rte_rdtsc() - tick1;
 			}
-		}else {
-			bool found = false;
-		//if (tick1 - lastread > onemsticks/10){
-		//	lastread = tick1;
-			if (!found){
-				client_readsync(fr->c, maxdelaypacket, tick1);
-			}
+		}else{
+			client_readsync(fr->c, maxdelaypacket, tick1);
 		}
 
 		end_pkts_num = mt->pkts_num; //this is for timer stat

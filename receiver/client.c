@@ -27,8 +27,6 @@ void addtrigger(struct client * c, struct message_addtrigger * m);
 void deltrigger(struct client * c, struct message_deltrigger * m2);
 void gettrigger(struct client * c, struct message_triggerquery * m);
 void gettrigger2(struct client * c, struct message_triggerquery * m);
-void * client_mainloop(void * c);
-void * client_senderworker(void * c);
 bool ReadXBytes(int fd, uint32_t x, char * buffer, bool force, uint16_t * bytesRead);
 bool readamessage(struct client * c);
 struct requestlist * findrequestlist(struct client * c, uint32_t time);
@@ -40,6 +38,10 @@ inline void resetinbuf(struct client * c);
 int client_flushtocontroller(struct client * c);
 int sendtocontrollerwait(struct client *c, uint16_t size, void * buf);
 
+/*
+* Gets a buffer for message with header h and size of buffer bufsize from the output buffer that goes into the controller.
+* The user of this method must fill up the buffer immediately. Although there is no concern of multi-threading because everything runs on the same core, still even if the buffer is not filled up it will be sent in free cycles.
+*/
 inline bool getmessagebuffer(struct client * c, struct messageheader **h, void ** buf, int bufsize){
 	int i;
 	for  (i = 0; i < 10 && c->outbuf_tail + bufsize >= CLIENT_BUFSIZE; i++){
@@ -56,11 +58,9 @@ inline bool getmessagebuffer(struct client * c, struct messageheader **h, void *
 }
 
 //ASSUMES: message_triggersatisfaction is the largest message type client sends
-struct client * client_init(char * ip, uint16_t port, uint8_t core, bool onlysync){
+struct client * client_init(char * ip, uint16_t port){
 	struct client * c = MALLOC(sizeof(struct client));
         c->finish = false;
-	c->delay = 500;
-	c->core = core;
 	c->inbuf_head = 0;
 	c->inbuf_tail = 0;
 	c->outbuf_tail = 0;
@@ -79,48 +79,15 @@ struct client * client_init(char * ip, uint16_t port, uint8_t core, bool onlysyn
 		rl->next = c->freerl;
 		c->freerl = rl;
 	}
-	if (onlysync){
-		int flags = fcntl(c->fd, F_GETFL, 0); 
-		fcntl(c->fd, F_SETFL, flags | O_NONBLOCK);	
-		c->ring = NULL;
-		c->mem = NULL;
+	int flags = fcntl(c->fd, F_GETFL, 0); 
+	fcntl(c->fd, F_SETFL, flags | O_NONBLOCK);	
 		
-	}else{
-		c->ring = rte_ring_create("clientring", 1024, rte_socket_id(), RING_F_SP_ENQ | RING_F_SC_DEQ);
-		if (c->ring == NULL) {
-        		rte_panic("Cannot create ring for client\n");
-	        }
-		c->mem = rte_mempool_create("Message_pool",
-                                       1024,
-                                       sizeof(struct message_triggersatisfaction),
-                                       32,
-                                       0,
-                                       NULL, NULL,
-                                       NULL,      NULL,
-                                       rte_socket_id(),
-                                       MEMPOOL_F_SP_PUT | MEMPOOL_F_SC_GET);
-
-		pthread_mutex_init(&c->sendsocket_mutex, NULL);
-		int ret0 = pthread_create(&c->sender_thread, NULL, client_senderworker, c);
-		int ret1 = pthread_create(&c->receiver_thread, NULL, client_mainloop, c);
-		if (ret0 != 0 || ret1 != 0){
-			fprintf(stderr, "client cannot create threads\n");
-		}
-	}
 	return c;
 }
 
 void client_finish(struct client * c){
-//	rte_ring_free(c->ring); not available in dpdk 2.0
 	c->finish = true;
-	if (!c->onlysync){
-		pthread_join(c->sender_thread, NULL);
-		pthread_join(c->receiver_thread, NULL);
-		disconnect_from_server(c);
-		pthread_mutex_destroy(&c->sendsocket_mutex);
-	}else{
-		disconnect_from_server(c);
-	}
+	disconnect_from_server(c);
 	struct requestlist * rl, *rl2;
 	for (rl = c->rl; rl != NULL; rl = rl2){
 		rl2 = rl->next;
@@ -150,7 +117,10 @@ void client_hello(struct client * c, uint32_t id, uint32_t time){
 	sendtocontrollerwait(c, MESSAGESIZE(h), h);
 }
 
-
+/*
+* Connects to the controller with a TCP channel. 
+* returns 0 if successful
+*/
 int connect_to_server(struct client * c, char * ip, uint16_t port){
     int sockfd = 0;
     struct sockaddr_in serv_addr;
@@ -197,6 +167,9 @@ void disconnect_from_server(struct client * c){
 	c->fd = 0;
 }
 
+/*
+* Flushess the output buffer to the controller
+*/
 int client_flushtocontroller(struct client * c){
 	if (c->outbuf_tail == 0 || c->fd == 0){
 		return 0;
@@ -212,17 +185,19 @@ int client_flushtocontroller(struct client * c){
 	return written;
 }
 
+/*
+* A generic method that dumps a buffer to the controller.
+* This is useful to send just a single message to the controller out of order
+*/
 int client_sendtocontroller2(struct client * c, uint32_t size, void * buf){
 	if (c->fd == 0){
 		return 0;
 	}
         int result;
 	uint32_t sum = 0;
-	if (!c->onlysync) pthread_mutex_lock(&c->sendsocket_mutex);
 	do{
 	        result = write(c->fd, (char *)buf + sum, size - sum);
         	if (result < 0){
-			if (!c->onlysync) pthread_mutex_unlock(&c->sendsocket_mutex);
 			if (errno != EAGAIN && errno != EWOULDBLOCK){
 				int errno2 = errno;
 				fprintf(stderr, "Client: cannto write at %d error %s\n", c->fr->step, strerror(errno2));
@@ -235,7 +210,6 @@ int client_sendtocontroller2(struct client * c, uint32_t size, void * buf){
 		}
 	}while (sum < size);
 
-	if (!c->onlysync) pthread_mutex_unlock(&c->sendsocket_mutex);
         return sum;
 }
 
@@ -263,6 +237,9 @@ void __attribute__((unused)) client_test(struct client * c){
 	while (c->outbuf_tail > 0 && client_flushtocontroller(c) >= 0);	
 }
 
+/*
+* Handles add trigger messages by adding the trigger and replying the success/failure message to the controller
+*/
 void addtrigger(struct client * c, struct message_addtrigger * m2){
 	//must return success/failure message to the controller
 	LOG("%"PRIu64": add step %d event %d\n", rte_rdtsc(), c->fr->step, m2->eventid);
@@ -303,7 +280,9 @@ void addtrigger(struct client * c, struct message_addtrigger * m2){
 	}*/
 }
 
-
+/*
+* Handles delete trigger command from the controller by deleting the trigger and replying success/failure to it
+*/
 void deltrigger(struct client * c, struct message_deltrigger * m2){
 	//must return success/failure message to the controller
 	LOG("%"PRIu64": del step %d event %d\n", rte_rdtsc(), c->fr->step, m2->eventid);
@@ -344,7 +323,9 @@ void deltrigger(struct client * c, struct message_deltrigger * m2){
 //	clent_sendtocontroller (c, MESSAGESIZE(h), h);
 }
 
-
+/*
+* Sends a messaage to the controller and makes sure it is sent out before returning
+*/
 inline int sendtocontrollerwait(struct client *c, uint16_t size, void * buf){
 	int ret = 0;
 	int sum = 0;
@@ -397,8 +378,10 @@ void client_sendtriggersync(struct client * c, struct trigger *t, uint32_t time,
 //	client_flushtocontroller(c);// JUST FOR TEST
 }
 
+/*
+* return the value of the trigger at a specific time to the controller
+*/
 void gettrigger2(struct client *c, struct message_triggerquery *m){
-//return the value of the trigger at a specific time to the controller
 	struct trigger * temptable[FLOWENTRY_TRIGGER_SIZE];
 	uint16_t num = FLOWENTRY_TRIGGER_SIZE;
 	triggertable_justmatch(c->fr->tt, &m->f, &m->mask, temptable, &num);
@@ -413,6 +396,12 @@ void gettrigger2(struct client *c, struct message_triggerquery *m){
 	}
 }
 
+/*
+* finds the place based on time to add a request list
+* if cannot find a requestlist with the requested time that has empty array slote, 
+* it returns that requestlist just before the new one should be added
+* It may return null if the linked list is empty or when the new requestlist must be head.
+*/
 struct requestlist * findrequestlist(struct client * c, uint32_t time){
 	struct requestlist * rl, *rl_last;
 	rl_last = NULL;
@@ -426,6 +415,9 @@ struct requestlist * findrequestlist(struct client * c, uint32_t time){
 	return rl_last;
 }
 
+/*
+* queue the new request in the sorted linkedlist of requestlists.
+*/
 void queuerequest(struct client *c, struct message_triggerquery *m){
 	struct requestlist * rl = findrequestlist(c, m->time);
 	if (rl == NULL || rl->time != m->time || rl->filled == REQUESTLIST_BUFSIZE){
@@ -456,7 +448,9 @@ void queuerequest(struct client *c, struct message_triggerquery *m){
 	memcpy(m2, m, sizeof(struct message_triggerquery));
 }
 
-
+/*
+* handles the trigger poll messages fro the controller by replying to it or queueing the request if the requested epoch is not finished yet
+*/
 void gettrigger(struct client * c, struct message_triggerquery * m){
 	LOG("%"PRIu64": poll time %d step %d event %d seq %d\n", rte_rdtsc(), m->time, c->fr->step, m->eventid, c->readseqnum);
 	if (c->fr->step < m->time){
@@ -467,9 +461,10 @@ void gettrigger(struct client * c, struct message_triggerquery * m){
 	gettrigger2(c, m);	
 }
 
-
-
 void client_readsync(struct client * c, uint64_t timebudget, uint64_t start){
+// First process queues requests, then read messages from the controller and then dump the output buffer
+// The output buffer may be dumped in between if it reaches its capacity
+
 	if (c->fd == 0){
 		return;
 	}
@@ -540,7 +535,12 @@ void client_waitforhello(struct client * c){
 	}
 }
 
-
+/*
+* Read x number of bytes into a buffer from the controller connection socket.
+* if force is true, it doesn't return until x bytes is read
+* if force is false, just returns after the first try
+* returns false if there is any error. 
+*/
 bool ReadXBytes(int fd, uint32_t x, char * buffer, bool force, uint16_t * bytesRead) {
     uint32_t bytesRead2 = 0;
     int result;
@@ -575,6 +575,9 @@ bool ReadXBytes(int fd, uint32_t x, char * buffer, bool force, uint16_t * bytesR
     return true;
 }
 
+/*
+* Reads messages from the controller into the buffer and updates its head & tail based on the actual number of bytes read
+*/
 bool readbuffer(struct client * c){
 	uint16_t bytesRead;
 	if (CLIENT_BUFSIZE - c->inbuf_tail < 64){
@@ -591,16 +594,19 @@ bool readbuffer(struct client * c){
 	return (c->inbuf_tail - c->inbuf_head) >= (int)sizeof(struct messageheader);
 }
 
+/*
+* The input buffer is a circular buffer.
+* This method handles the circulation and does that at the boundary of a message
+*/
 inline void resetinbuf(struct client * c){
-	if (c->inbuf_head > 0 && c->inbuf_tail == c->inbuf_head){
+	if (c->inbuf_head > 0 && c->inbuf_tail == c->inbuf_head){ //buffer is empty
 		c->inbuf_head = 0;
 		c->inbuf_tail = 0;
-	}else if ((c->inbuf_tail - c->inbuf_head) < c->inbuf_head){
+	}else if ((c->inbuf_tail - c->inbuf_head) < c->inbuf_head){// there is enough space before head to keep the data that is already in the buffer
 		memcpy(c->input_buffer, c->input_buffer + c->inbuf_head, c->inbuf_tail - c->inbuf_head);
 		c->inbuf_tail = c->inbuf_tail - c->inbuf_head;
 		c->inbuf_head = 0;
 	}
-
 }
 
 //this is just to test reading one message at a time from socket
@@ -631,6 +637,10 @@ bool onlyreadonemessage(struct client * c){
 	return readamessage(c);
 }
 
+/*
+* Read a message from the buffer and process it.
+* returns false is the whole message is not in the buffer yet.
+*/
 bool readamessage(struct client * c){
 	struct messageheader *  h;
 	if ((c->inbuf_tail - c->inbuf_head) < (int)sizeof(struct messageheader)){
@@ -665,82 +675,4 @@ bool readamessage(struct client * c){
 	}
 	c->inbuf_head += MESSAGESIZE(h);
 	return true;
-}
-
-/* ------------------------------- Async --------------------------- */
-
-void * client_mainloop(void * _){
-	struct client * c = (struct client *) _;
-	set_CPU(c->core);
-
-	while (!c->finish){
-		if (readamessage(c)){ //FIXME
-			break;
-		}
-	}
-
-	return NULL;
-}
-
-void * client_senderworker(void * _){
-	struct client * c = (struct client *)_;
-	set_CPU(c->core);
-	void * obj_table [32];
-	int i, n;
-	struct message_triggersatisfaction * m;
-	struct messageheader * h;
-	char buffer [1024];
-	const int message_size = sizeof(struct messageheader) + sizeof(struct message_triggersatisfaction);
-	while (c->finish){
-		char * buf = buffer;
-		n = rte_ring_sc_dequeue_bulk(c->ring, obj_table, sizeof(buffer)/message_size);
-		if (n < 0){
-			fprintf(stderr, "client cannot read message from ring");
-		}
-		if (n > 0){
-			for (i = 0; i < n; i++){
-				h = (struct messageheader *)buf;
-				m = (struct message_triggersatisfaction *)(buf + sizeof(struct messageheader));
-				h->type = mt_triggersatisfaction;
-				h->length = sizeof (struct message_triggersatisfaction);
-				memcpy(m, obj_table[i], h->length);
-				buf += message_size;
-				if (c->delay > 10){ //AIMD
-	                                c->delay /= 2;
-        	                }
-			}
-			sendtocontrollerwait(c, message_size * n, buffer);
-			rte_mempool_sp_put_bulk(c->mem, obj_table, n);
-		}else{
-			usleep(c->delay);
-                        if (c->delay < 500){ //AIMD
-                                c->delay += 10;
-                        }
-		}
-		
-	}	
-	return NULL;
-}
-
-void client_sendtriggerasync(struct client * c, struct trigger * t, uint32_t time){
-	if (c->onlysync){
-		fprintf(stderr, "clinet: only sync operations are supported");
-	}
-	struct message_triggersatisfaction * m;
-	int ret0 = rte_mempool_sc_get(c->mem, (void **) &m);
-	if (ret0 != 0 ){
-		fprintf(stderr, "client cannot get memory for a message\n");
-		return;
-	}
-	m->time = time;
-	m->eventid = t->eventid;
-
-	bool ret = triggertable_getreport(c->fr->tt, t, m->buf, time);
-	m->code = ret ? 0 : 1;
-	int ret1 = rte_ring_sp_enqueue(c->ring, m);
-	if (ret1 != 0){
-		fprintf(stderr, "client ring is full\n");
-		rte_mempool_sp_put(c->mem, m);
-		return;
-	}
 }

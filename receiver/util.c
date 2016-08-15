@@ -16,7 +16,7 @@ inline bool is_empty2(void *buf2, uint32_t size)
 
 //from http://stackoverflow.com/questions/21413565/create-a-mask-that-marks-the-most-significant-set-bit-using-only-bitwise-operat
 uint32_t gbp(uint32_t m) {
- // return most significant bit of n
+ // return most significant bit of m
  //uint32_t m;
  //m = n;
   m = m | m >> 1;
