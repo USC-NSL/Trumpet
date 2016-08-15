@@ -14,9 +14,9 @@
 #define BURSTLIST_BLOCK 32
 
 #if TRIGGERTABLE_SWEEP
-#define FLOWENTRY_BUF_SIZE 91 // 128 - 12 - 8 - 8 - 1 - 8
+#define FLOWENTRY_BUF_SIZE 87 // 128 - 16 - 8 - 8 - 1 - 8
 #else
-#define FLOWENTRY_BUF_SIZE 131 // 192 - 12 - 8 - 1 - 8 - 16*2
+#define FLOWENTRY_BUF_SIZE 127 // 192 - 16 - 8 - 1 - 8 - 16*2
 #endif
 
 struct trigger;

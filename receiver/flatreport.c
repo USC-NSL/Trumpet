@@ -92,11 +92,12 @@ void preparematchanytrigger(struct flatreport * fr){
 	uint32_t srcip = (((((10<<8)+0)<<8)+5)<<8)+4;
 	uint32_t ports =  (58513 <<16) | 2500;
 	filtermask.dstip = htonl(0xffffffff << (log2_32(iprangesize)));
-	filtermask.srcip = filtermask.ports = 0x00000000;
+	filtermask.protocol = filtermask.srcip = filtermask.ports = 0x00000000;
 
         filter.dstip = htonl(dstip) & filtermask.dstip;
         filter.srcip = htonl(srcip & filtermask.srcip);
         filter.ports = (htons((ports & filtermask.ports)>>16)<<16) | htons((ports & filtermask.ports) &0xffff);
+	filter.protocol = 0;
 	flow_fill(&fr->anymatchfilter[fr->anymatchfilternum - 1], &filter);
 	flow_fill(&fr->anymatchfiltermask[fr->anymatchfilternum - 1], &filtermask);
 	flow_print(&filter);
@@ -105,10 +106,10 @@ void preparematchanytrigger(struct flatreport * fr){
 
 inline bool matchanytrigger(struct flatreport * fr, struct flatreport_pkt * pkt){
 	int i;
+	struct flow f;
 	for (i = 0; i < fr->anymatchfilternum; i++){
-		if ((pkt->f.srcip & fr->anymatchfiltermask[i].srcip) == fr->anymatchfilter[i].srcip &&
-			(pkt->f.dstip & fr->anymatchfiltermask[i].dstip) == fr->anymatchfilter[i].dstip &&
-			(pkt->f.ports & fr->anymatchfiltermask[i].ports) == fr->anymatchfilter[i].ports){
+		flow_mask(&f, &pkt->f, &fr->anymatchfiltermask[i]);
+		if (flow_equal(&f, &fr->anymatchfilter[i])){
 			return true;
 		}
 	}
@@ -487,7 +488,9 @@ __attribute__((unused)) void flatreport_makenotmatchingtriggers(struct flatrepor
 	uint32_t triggernumtillnow = 0;
 
 	filtermask.srcip = 0xffffffff;
+	filtermask.protocol = 0x00000000;
 	filter.srcip = 0;
+	filter.protocol = 0;
 	uint32_t ip = (((((10<<8)+0)<<8)+4)<<8)+0;
 	uint32_t ports = 0;
 	struct trigger * t = NULL;
@@ -528,9 +531,11 @@ __attribute__((unused)) void flatreport_makeallpatternsmatchingtriggers(struct f
 	uint32_t triggernumtillnow = 0;
 
 	filtermask.dstip = htonl((0xffffffff)>>(32 - log2_32(triggernum/patterns)));
+	filtermask.protocol = 0x00000000;
 	uint32_t ip = (((((128<<8)+0)<<8)+4)<<8)+0;
 	uint32_t srcip = 1;
 	uint32_t ports = (1<<16) | 2;
+	filter.protocol = 0;
 	struct trigger * t = NULL;
 	while (triggernumtillnow < triggernum){
 		uint32_t mask1 = 0xffffffff;
@@ -571,9 +576,11 @@ __attribute__((unused)) void flatreport_makeperpktmatchingtriggers(struct flatre
 	uint16_t i; 
 
 	filtermask.dstip = htonl((0xffffffff)>>(32 - log2_32(triggernum/triggerperpkt)));
+	filtermask.protocol = 0x00000000;
 	uint32_t ip = (((((128<<8)+0)<<8)+4)<<8)+0;
 	uint32_t srcip = 1;
 	uint32_t ports = (1<<16) | 2;
+	filter.protocol = 0;
 	struct trigger * t = NULL;
 	while (triggernumtillnow < triggernum){
 		uint32_t mask1 = 0xffffffff;
@@ -614,6 +621,7 @@ __attribute__((unused)) void flatreport_makeperpktpatterntriggers(struct flatrep
 	uint16_t i; 
 
 	filtermask.dstip = htonl((0xffffffff)>>(32 - log2_32(triggernum/triggerperpkt)));
+	filtermask.protocol = 0x00000000;
 	uint32_t ip = (((((128<<8)+0)<<8)+4)<<8)+0;
 	uint32_t srcip = 1;
 	uint32_t ports = (1<<16) | 2;
@@ -621,6 +629,7 @@ __attribute__((unused)) void flatreport_makeperpktpatterntriggers(struct flatrep
 	uint32_t patternid = 0;
 	uint32_t mask1 = 0xffffffff;
 	uint32_t mask2 = 0xffffffff;
+	filter.protocol = 0;
 	while (triggernumtillnow < triggernum){
 		filter.dstip = htonl(ip) & filtermask.dstip;
 		for (i = 0; i < triggerperpkt; i++){
@@ -660,7 +669,9 @@ uint32_t triggernum, struct triggertype * type){
 //	uint32_t ip = (((((128<<8)+0)<<8)+4)<<8)+0;
 	filtermask.srcip = htonl(0x00000000);
 	filtermask.dstip = htonl(0x00000000);
+	filtermask.protocol = 0x00000000;
 	filter.srcip = 0;
+	filter.protocol = 0;
 	uint32_t ports = (1<<16) | 2;
 	filter.dstip = 0;
 	struct trigger * t = NULL;
@@ -722,10 +733,10 @@ void flatreport_profilematching(struct flatreport * fr){
 		pkt->f.srcip = htonl(1);
         	pkt->f.dstip = htonl((((((128<<8)+0)<<8)+4)<<8)+0);
 	        pkt->f.ports = (1<<16) | 2;
+		pkt->f.protocol = 0;
         	pkt->ts = 0;
 	        pkt->seq = ntohl(0x283902);
         	pkt->length = 1;
-	        pkt->ip_p = 0;
 	        pkt->sameaslast = false;
         	pkt->hash = flow_hash(&pkt->f);
 		uint64_t start_tsc = rte_rdtsc();
@@ -894,6 +905,8 @@ void flatreport_addtriggers(struct flatreport * fr, uint16_t trigger_num, uint16
 	}
 
 	filtermask.dstip = htonl(0xffffffff<<bits);
+	filtermask.protocol = 0x00000000;
+	filter.protocol = 0;
 	uint32_t dstip = (((((10<<8)+0)<<8)+4)<<8)+0;
 	uint32_t srcip = (((((10<<8)+0)<<8)+5)<<8)+4;
 	uint32_t ports =  (58513 <<16) |2500;

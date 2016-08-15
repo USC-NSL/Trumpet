@@ -23,8 +23,8 @@ typedef bool (*trigger_condition_func)(struct trigger * t);
 
 struct triggerflow{
 	struct flow f;
-	uint32_t hash;
 	struct flowentry * fe;
+	uint32_t hash;
 };
 
 struct triggerflowlistpool{
@@ -90,18 +90,18 @@ struct trigger{
 	uint16_t pos;	
 	uint16_t id;
 	struct flow filter;	
-	uint16_t eventid;
 	struct flow mask;
 	uint32_t matched;
-#if TRIGGERTABLE_SWEEP
-	struct triggerflowlist * tfl;
-	char buf[70] __attribute__((aligned(4)));
-	uint8_t tfhead_filled;
-#else
-	char buf[78] __attribute__((aligned(4)));
-	bool reported;	
-#endif
+	uint16_t eventid;
 	uint8_t historyindex;
+#if TRIGGERTABLE_SWEEP
+	uint8_t tfhead_filled;
+	struct triggerflowlist * tfl;
+	char buf[64] __attribute__((aligned(4)));
+#else
+	bool reported;	
+	char buf[72] __attribute__((aligned(4)));
+#endif
 };
 
 struct triggertable * triggertable_init(struct flatreport * fr);

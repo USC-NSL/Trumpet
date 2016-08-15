@@ -1014,6 +1014,7 @@ void congestion_trigger_update(struct trigger * t, void * data __attribute__((un
 	f.srcip = fe->f.dstip;
 	f.dstip = fe->f.srcip;
 	f.ports = ((fe->f.ports & 0xffff)<<16) | (fe->f.ports>>16);
+	f.protocol = fe->f.protocol;
 	struct flowentry * fe2 = flatreport_getflowentry(tt->fr, &f);
 	if (fe2 == NULL) return;
 

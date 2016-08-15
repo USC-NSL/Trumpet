@@ -1,4 +1,4 @@
-This is the guide on how to repeat the simplest experiment: sending and receivinng 10G traffic withotu any DoS attack.Note that you need two machines sender and receiver.
+This is the guide on how to repeat the simplest experiment: sending and receivinng 10G traffic without any DoS attack.Note that you need two machines sender and receiver.
 - At the receiver make sure that the options at util.h and basicfwd.c are set correctly (default ones)
 - At the receiver, edit run.sh and set sender IP and senderfolder correctly (Note the IP is different from the receiver IP).
 - Make sure that you set the user right (chnage ubuntu to your username at the sender machine).

@@ -57,7 +57,6 @@ inline bool getmessagebuffer(struct client * c, struct messageheader **h, void *
 	return true;
 }
 
-//ASSUMES: message_triggersatisfaction is the largest message type client sends
 struct client * client_init(char * ip, uint16_t port){
 	struct client * c = MALLOC(sizeof(struct client));
         c->finish = false;
@@ -580,7 +579,7 @@ bool ReadXBytes(int fd, uint32_t x, char * buffer, bool force, uint16_t * bytesR
 */
 bool readbuffer(struct client * c){
 	uint16_t bytesRead;
-	if (CLIENT_BUFSIZE - c->inbuf_tail < 64){
+	if (CLIENT_BUFSIZE - c->inbuf_tail < MESSAGE_MAXSIZE){
 		printf("Client: small bufsize %d %d\n", c->inbuf_head, c->inbuf_tail);
 		return false;
 	}

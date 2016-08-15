@@ -4,6 +4,7 @@
 #include "flow.h"
 
 #define MESSAGE_BUFSIZE 8
+#define MESSAGE_MAXSIZE 64
 
 enum messagetype{
         mt_hello,
@@ -17,7 +18,6 @@ enum messagetype{
         mt_bye
 };
 
-
 struct messageheader{
         enum messagetype type;
         uint16_t length;
@@ -30,16 +30,16 @@ struct message_hello{
 
 struct message_addtrigger{
         struct flow f;
-        uint32_t eventid;
         struct flow mask;
+        uint32_t eventid;
         char buf[MESSAGE_BUFSIZE];
         //uint32_t type_id;
 };
 
 struct message_deltrigger{
         struct flow f;
-        uint32_t eventid;
         struct flow mask;
+        uint32_t eventid;
 };
 
 struct message_deltrigger_return{
@@ -47,7 +47,6 @@ struct message_deltrigger_return{
         uint16_t eventid;
         bool success;
 };
-
 
 struct message_addtrigger_return{
         uint32_t time;
@@ -64,9 +63,9 @@ struct message_triggersatisfaction{
 
 struct message_triggerquery{
         struct flow f;
+        struct flow mask;
         uint16_t eventid;
         uint16_t time;
-        struct flow mask;
 };
 
 #endif /* messages.h */

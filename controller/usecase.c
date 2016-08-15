@@ -56,9 +56,11 @@ void usecase_netwide_addevent(struct eventhandler * eh, struct dc_param * events
                 e->mask.srcip = 0x00000000;
                 e->mask.dstip = mask;
                 e->mask.ports = 0xffffffff;
+		e->mask.protocol = 0x00000000;
                 e->f.srcip = ntohl(e->mask.srcip &((((((10<<8)+0)<<8)+5)<<8)+4));
                 e->f.dstip = ntohl(e->mask.dstip & (((((((10<<8)+0)<<8)+4+0)<<8)+0) + (eh->events_num << (generatoripbits-log2_32(eventsnum)))));
                 e->f.ports = (ntohs((e->mask.ports>>16) & 58513)<<16) | ntohs((e->mask.ports & 0xffff) & 2500);
+		e->f.protocol = 0;
                 e->timeinterval = 10; 
 		e->mask.srcip = ntohl(e->mask.srcip);
                 e->mask.dstip = ntohl(e->mask.dstip);
@@ -127,16 +129,20 @@ static void addlossevent(struct eventhandler * eh, __attribute__((unused))struct
 			e->mask.srcip = 0x00000000;
 			e->mask.dstip = 0xffffffff;
 			e->mask.ports = 0x0000ffff;
+			e->mask.protocol = 0xffffffff;
 			e->f.srcip = ntohl(e->mask.srcip &((((((192<<8)+168)<<8)+1)<<8)+1));
 			e->f.dstip = ntohl(e->mask.dstip & ((((((192<<8)+168)<<8)+1)<<8)+3));
 			e->f.ports = (ntohs((e->mask.ports>>16) & 58513)<<16) | ntohs((e->mask.ports & 0xffff) & 2500);
+			e->f.protocol = 6; //TCP
 		}else{
 			e->mask.srcip = 0xffffffff;
 			e->mask.dstip = 0x00000000;
 			e->mask.ports = 0xffff0000; //both receive and send
+			e->mask.protocol = 0xffffffff;
 			e->f.srcip = ntohl(e->mask.srcip & ((((((192<<8)+168)<<8)+1)<<8)+3));
 			e->f.dstip = ntohl(e->mask.dstip &((((((192<<8)+168)<<8)+1)<<8)+1));
 			e->f.ports = (ntohs((e->mask.ports>>16) & 2500)<<16) | ntohs((e->mask.ports & 0xffff) & 58513);
+			e->f.protocol = 6; //TCP
 		}
 
 		e->mask.srcip = ntohl(e->mask.srcip);
@@ -209,9 +215,11 @@ void lossaction(struct usecase_congestion * u2, uint32_t removedelay){
        e->mask.srcip = 0x00000000;
        e->mask.dstip = 0xffffffff;
        e->mask.ports = 0x0000ffff;
+       e->mask.protocol = 0xffffffff;
        e->f.srcip = ntohl(e->mask.srcip & ((((((192<<8)+168)<<8)+1)<<8)+0));
        e->f.dstip = ntohl(e->mask.dstip &((((((192<<8)+168)<<8)+1)<<8)+3));
        e->f.ports = (ntohs((e->mask.ports>>16) & 0)<<16) | ntohs((e->mask.ports & 0xffff) & 2501);
+       e->f.protocol = 17; //UDP
 
        e->mask.srcip = ntohl(e->mask.srcip);
        e->mask.dstip = ntohl(e->mask.dstip);
@@ -394,7 +402,7 @@ static struct event * usecase_file_readline(struct usecase_file * u2, char * lin
 	//Validate semantics of data
 
 	uint32_t srcip, dstip;
-	uint16_t protocol __attribute__((unused)); 
+	uint8_t protocol; 
 	uint16_t srcport, dstport;
 	uint16_t srcip_len, dstip_len, protocol_len, srcport_len, dstport_len;
 	uint16_t fg_srcip_len, fg_dstip_len, fg_protocol_len, fg_srcport_len, fg_dstport_len;
@@ -419,7 +427,7 @@ static struct event * usecase_file_readline(struct usecase_file * u2, char * lin
 	dstip_len = atoi(filter_a[3]);
 	dstip_len = dstip_len > 32 ? 32 : dstip_len;
 	protocol_len = atoi(filter_a[5]);
-	protocol_len = protocol_len > 16 ? 16 : protocol_len;
+	protocol_len = protocol_len > 8 ? 8 : protocol_len;
 	srcport_len = atoi(filter_a[7]);
 	srcport_len = srcport_len > 16 ? 16 : srcport_len;
 	dstport_len = atoi(filter_a[9]);
@@ -430,7 +438,7 @@ static struct event * usecase_file_readline(struct usecase_file * u2, char * lin
 	fg_dstip_len = atoi(fg_a[3]);
 	fg_dstip_len = fg_dstip_len > 32 ? 32 : fg_dstip_len;
 	fg_protocol_len = atoi(fg_a[5]);
-	fg_protocol_len = fg_protocol_len > 16 ? 16 : fg_protocol_len;
+	fg_protocol_len = fg_protocol_len > 8 ? 8 : fg_protocol_len;
 	fg_srcport_len = atoi(fg_a[7]);
 	fg_srcport_len = fg_srcport_len > 16 ? 16 : fg_srcport_len;
 	fg_dstport_len = atoi(fg_a[9]);
@@ -443,9 +451,11 @@ static struct event * usecase_file_readline(struct usecase_file * u2, char * lin
 	e->mask.srcip = 0xffffffff << (32-srcip_len);
         e->mask.dstip = 0xffffffff << (32-dstip_len);
         e->mask.ports = ((0x00000000ffffUL << (32-srcport_len))&0xffff0000) | ((0x0000ffff << (16-dstport_len)) & 0x0000ffff);
+	e->mask.protocol = (0x000000ff <<(8-protocol_len)) & 0x000000ff;
         e->f.srcip = ntohl(e->mask.srcip & srcip);
         e->f.dstip = ntohl(e->mask.dstip & dstip);
         e->f.ports = (ntohs((e->mask.ports>>16) & srcport)<<16) | ntohs((e->mask.ports & 0xffff) & dstport);
+	e->f.protocol = e->mask.protocol & protocol;
                 
 	e->mask.srcip = ntohl(e->mask.srcip);
         e->mask.dstip = ntohl(e->mask.dstip);

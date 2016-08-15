@@ -4,13 +4,14 @@
 #include <string.h>
 
 inline bool flow_equal(struct flow * f1, struct flow * f2){ 
-	return f1->srcip == f2->srcip && f1->dstip == f2->dstip && f1->ports == f2->ports;
+	return  *(((uint64_t *)f1)) == *(((uint64_t *)f2)) && *(((uint64_t *)f1) +1) == *(((uint64_t *)f2) +1);
 }
 
 inline bool flow_equal3(void * d1, void * d2){ 
-	struct flow * f1 = (struct flow *) d1;
+	return  *(((uint64_t *)d1)) == *(((uint64_t *)d2)) && *(((uint64_t *)d1) +1) == *(((uint64_t *)d2) +1);
+/*	struct flow * f1 = (struct flow *) d1;
 	struct flow * f2 = (struct flow *) d2;
-	return f1->srcip == f2->srcip && f1->dstip == f2->dstip && f1->ports == f2->ports;
+	return f1->srcip == f2->srcip && f1->dstip == f2->dstip && f1->ports == f2->ports && f1->protocol == f2->protocol;*/
 }
 
 inline uint32_t flow_hash (struct flow * f){
@@ -21,13 +22,16 @@ inline uint32_t flow_hash (struct flow * f){
 }
 
 inline void flow_fill(struct flow * dst, struct flow * src){
-	dst->srcip = src->srcip;
+	*((uint64_t *)dst) = *((uint64_t *)src);
+	*(((uint64_t *)dst) + 1) = *(((uint64_t *)src) +1);
+/*	dst->srcip = src->srcip;
 	dst->dstip = src->dstip;
 	dst->ports = src->ports;
+	dst->protocol = src->protocol;*/
 }
 
-inline bool flow_equal2(struct flow * f1, uint32_t srcip, uint32_t dstip, uint32_t ports){
-	return f1->srcip == srcip && f1->dstip == dstip && f1->ports == ports;
+inline bool flow_equal2(struct flow * f1, uint32_t srcip, uint32_t dstip, uint32_t ports, uint32_t protocol){
+	return f1->srcip == srcip && f1->dstip == dstip && f1->ports == ports && f1->protocol == protocol;
 }
 
 void flow_print(struct flow * f){
@@ -57,7 +61,10 @@ void flow_inlineprint(struct flow * f){
 
 
 inline void flow_mask(struct flow * dst, struct flow * src, struct flow * maskflow){
-	dst->srcip = src->srcip & maskflow->srcip;
+	*((uint64_t *)dst) = *((uint64_t *)src) & *(((uint64_t *)maskflow));
+	*(((uint64_t *)dst) + 1) = *(((uint64_t *)src) +1) & *(((uint64_t *)maskflow) +1);
+/*	dst->srcip = src->srcip & maskflow->srcip;
 	dst->dstip = src->dstip & maskflow->dstip;
 	dst->ports = src->ports & maskflow->ports;
+	dst->protocol = src->protocol && maskflow->protocol; */
 }

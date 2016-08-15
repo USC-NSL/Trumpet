@@ -35,9 +35,9 @@ struct usecase_file{
 	struct usecase u;
 	uint16_t targetservers;
 	uint16_t serversnum;
-	char f [128];
-	struct event ** events;
 	uint32_t events_num;
+	struct event ** events;
+	char f [128];
 };
 
 

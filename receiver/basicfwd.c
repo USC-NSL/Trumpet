@@ -881,12 +881,13 @@ static void readpackets(struct rte_mbuf ** bufs, uint16_t nb_rx, struct measurem
                 }
 		pkt = fr->pkts + fr->pkt_q;
 		fr->pkt_q++;
-        	pkt->ip_p = proto;
+        	//pkt->ip_p = proto;
 		pkt->ts =  0;
                         //(uint32_t)((rte_rdtsc() - fr->epoch_ts) / rte_get_tsc_hz());
 		pkt->f.srcip = ip_hdr->src_addr;
 		pkt->f.dstip = ip_hdr->dst_addr; 
 		pkt->f.ports = (srcport<<16) | dstport;
+		pkt->f.protocol = proto;
 		pkt->ack = ntohl(pkt_ack);
         	pkt->seq = ntohl(pkt_seq);
         	pkt->length = ntohs(ip_hdr->total_length);

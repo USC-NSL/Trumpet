@@ -56,13 +56,13 @@ struct eventhistory;
 struct event{
 	struct flow f;
 	uint32_t id; //unique among events
-	struct flow mask;
 	uint32_t threshold;
-	uint16_t timeinterval;
+	struct flow mask;
 	hashmap_elem elem;
 	struct eventhistory * eventhistory_head; // a link list of the event occurances
 	struct trigger triggers [MAX_SERVERS]; //keep a trigger position for each server. it is filled if the server ponter is not null. A simple & fast implementation just as a prototype, it could be a hashmap in production
 	pthread_rwlock_t lock; // The lock is used for accessing the eventhistory linked list
+	uint16_t timeinterval;
 	uint8_t type;
 };
 
@@ -84,14 +84,14 @@ struct eventhistory{
 struct eventhandler{
 	struct hashmap * eventsmap;
 	struct timespec inittime; // the initiation time of the controller. All epochs at the controller must be calculated based ont this initiation time
-	uint16_t events_num;
 	pthread_mutex_t global_mutex; //To coontrol the access to eventsmapping and delayed commands
-	sem_t dc_sem; // to wake up the delay command thread 
-	struct delayedcommand * dc; //a sorted linked ist of delayed commands
-	bool dc_finish; //tell the delaycommand thread to stop
-	pthread_t dc_pth; // just runs delayed commands
 	struct serverdata * servers[MAX_SERVERS]; //An array of servers just for prototype. An entry could be null if the server with that ID is not yet contacted the controller.
 	struct usecase * u;
+	struct delayedcommand * dc; //a sorted linked ist of delayed commands
+	pthread_t dc_pth; // just runs delayed commands
+	sem_t dc_sem; // to wake up the delay command thread 
+	uint16_t events_num;
+	bool dc_finish; //tell the delaycommand thread to stop
 };
 struct delayedcommand * delayedcommand_init(uint64_t timeus);
 void delayedcommand_finish(struct delayedcommand * dc);

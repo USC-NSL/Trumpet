@@ -3,8 +3,8 @@
 #include "flowentry.h"
 
 struct table {
-	struct table * next;
 	struct flow mask;
+	struct table * next;
 	struct hashmap * map;
 };
 

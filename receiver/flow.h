@@ -4,16 +4,17 @@
 #include <stdint.h>
 #include "stdbool.h"
 
-struct flow{
+struct flow {
     uint32_t srcip;
     uint32_t dstip;
     uint32_t ports;
-};
+    uint32_t protocol; //32 bits instead of 8 to avoid not setting the three addtional bytes that are wasted anyway. Now, no need to reset the remaining bytes but can be ignored in 64bits operations
+}__attribute__((aligned(8)));
 
 void flow_fill(struct flow * dst, struct flow * src);
 bool flow_equal(struct flow * data1, struct flow * data2);
 bool flow_equal3(void* data1, void * data2);
-bool flow_equal2(struct flow * data1, uint32_t srcip, uint32_t dstip, uint32_t ports);
+bool flow_equal2(struct flow * data1, uint32_t srcip, uint32_t dstip, uint32_t ports, uint32_t protocol);
 uint32_t flow_hash (struct flow * f);
 void flow_print(struct flow * f);
 void flow_inlineprint(struct flow * f);

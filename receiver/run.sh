@@ -1,5 +1,5 @@
 #!/bin/bash
-sender=192.168.0.1
+sender=204.57.3.177
 senderfolder=/home/ubuntu/dpdk_r/dpdk/examples/sender
 
 echo "$1 --> $2"

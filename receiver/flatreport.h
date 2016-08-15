@@ -36,7 +36,6 @@ struct flatreport_pkt{
 	uint32_t ack;
 	uint32_t hash;
 	uint16_t length;
-	uint8_t ip_p; 
 	bool sameaslast;
 };
 

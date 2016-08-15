@@ -439,6 +439,9 @@ struct serverdata * serverdata_init(struct eventhandler * eh, int fd, struct soc
 	if (itemsize < sizeof(struct message_triggerquery)) itemsize = sizeof (struct message_triggerquery);
 
 	itemsize += sizeof(struct messageheader);
+	if (itemsize > MESSAGE_MAXSIZE){
+		printf("MESSAGE_MAXSIZE < used messaages (%d)\n", itemsize);
+	}
 	
 	int ringsize = gbp(SERVERDATA_BUFSIZE/itemsize);
 /*	if (ringsize < SERVERDATA_BUFSIZE/itemsize){
