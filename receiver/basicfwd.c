@@ -881,7 +881,6 @@ static void readpackets(struct rte_mbuf ** bufs, uint16_t nb_rx, struct measurem
                 }
 		pkt = fr->pkts + fr->pkt_q;
 		fr->pkt_q++;
-        	//pkt->ip_p = proto;
 		pkt->ts =  0;
                         //(uint32_t)((rte_rdtsc() - fr->epoch_ts) / rte_get_tsc_hz());
 		pkt->f.srcip = ip_hdr->src_addr;

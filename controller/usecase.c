@@ -133,7 +133,7 @@ static void addlossevent(struct eventhandler * eh, __attribute__((unused))struct
 			e->f.srcip = ntohl(e->mask.srcip &((((((192<<8)+168)<<8)+1)<<8)+1));
 			e->f.dstip = ntohl(e->mask.dstip & ((((((192<<8)+168)<<8)+1)<<8)+3));
 			e->f.ports = (ntohs((e->mask.ports>>16) & 58513)<<16) | ntohs((e->mask.ports & 0xffff) & 2500);
-			e->f.protocol = 6; //TCP
+			e->f.protocol = IPPROTO_TCP; //TCP
 		}else{
 			e->mask.srcip = 0xffffffff;
 			e->mask.dstip = 0x00000000;
@@ -142,7 +142,7 @@ static void addlossevent(struct eventhandler * eh, __attribute__((unused))struct
 			e->f.srcip = ntohl(e->mask.srcip & ((((((192<<8)+168)<<8)+1)<<8)+3));
 			e->f.dstip = ntohl(e->mask.dstip &((((((192<<8)+168)<<8)+1)<<8)+1));
 			e->f.ports = (ntohs((e->mask.ports>>16) & 2500)<<16) | ntohs((e->mask.ports & 0xffff) & 58513);
-			e->f.protocol = 6; //TCP
+			e->f.protocol = IPPROTO_TCP; //TCP
 		}
 
 		e->mask.srcip = ntohl(e->mask.srcip);
@@ -219,7 +219,7 @@ void lossaction(struct usecase_congestion * u2, uint32_t removedelay){
        e->f.srcip = ntohl(e->mask.srcip & ((((((192<<8)+168)<<8)+1)<<8)+0));
        e->f.dstip = ntohl(e->mask.dstip &((((((192<<8)+168)<<8)+1)<<8)+3));
        e->f.ports = (ntohs((e->mask.ports>>16) & 0)<<16) | ntohs((e->mask.ports & 0xffff) & 2501);
-       e->f.protocol = 17; //UDP
+       e->f.protocol = IPPROTO_UDP; //UDP
 
        e->mask.srcip = ntohl(e->mask.srcip);
        e->mask.dstip = ntohl(e->mask.dstip);
