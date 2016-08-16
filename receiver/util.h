@@ -65,7 +65,7 @@
 * How many packets to process in a batch. This affects prefetchig
 */
 #ifndef FLATREPORT_PKT_BURST
-#define FLATREPORT_PKT_BURST 16 // smaller than 32 
+#define FLATREPORT_PKT_BURST 32 // smaller than 32 
 #endif
 
 /*
