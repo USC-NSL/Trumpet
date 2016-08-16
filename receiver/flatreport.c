@@ -19,8 +19,6 @@ void * report(void * data);
 int connect_to_server(struct flatreport * fr);
 
 void finishsweep(struct flatreport * fr);
-bool flatreport_entry_print(void * data, void * aux);
-bool flatreport_entry_report(void * data, void * aux);
 struct flowentry * checkflow(struct flatreport * fr, struct flatreport_pkt * pkt);
 void flatreport_finishsweep(struct flatreport * fr);
 void flatreport_addtriggers_profilematching(struct flatreport * fr, uint32_t triggernum, uint32_t patterns);
@@ -28,11 +26,6 @@ bool matchforatrigger(void * data, void * aux);
 void preparematchanytrigger(struct flatreport * fr);
 bool matchanytrigger(struct flatreport * fr, struct flatreport_pkt * pkt);
 
-bool flatreport_entry_print(void * data, void * aux __attribute__((unused))) {
-	struct flatreport_entry * fre = (struct flatreport_entry *) data;
-	printf ("%u,%u:%u\n", fre->flow_id, fre->counter, fre->volume);
-	return true;
-}
 
 //check if the flow is in table or not; need this for clean of ddos table
 /*inline bool flatreport_isflowentryactive(struct flatreport * fr, struct flow * f){
@@ -231,7 +224,6 @@ void flatreport_startsweep(struct flatreport * fr){
 //	LOG("%"PRIu64", 0, %d\n", rte_rdtsc(), fr->step);
 
 	fr->stat_pktnum = 0;
-	fr->stat_bursts = 0;
 	flatreport_finishsweep(fr); //let's not do any sweep for this now
   #if TRIGGERTABLE_SWEEP
 	triggertable_startsweep(fr->tt);	
@@ -253,7 +245,6 @@ inline bool flatreport_issweepfinished(struct flatreport * fr){
 
 void flatreport_finishsweep(struct flatreport * fr){
         triggertable_report(fr->tt);
-        //send_to_server(fr);
 }
 
 void flatreport_sweep(struct flatreport * fr, uint64_t sweeptime, uint64_t start __attribute__((unused))){
@@ -378,7 +369,6 @@ struct flatreport * flatreport_init(struct ddostable2 * dt, struct client * c){
 
 	//stats
 	fr->stat_pktnum = 0;
-	fr->stat_bursts = 0;
 	fr->stat_matchdelay = 0;
 	fr->stat_flownum = 0;
 	
@@ -446,40 +436,6 @@ void flatreport_finish(struct flatreport * fr){
 inline struct summary_table * flatreport_getsummarytable(struct flatreport * fr){
 	return fr->st;
 }
-
-/*void send_to_server(struct flatreport * fr){
-	int wrote0;
-	if (fr->sockfd == 0){
-		return;
-	}
-		
-	uint32_t toSend = fr->tuples_buffer_current - fr->tuples_buffer
-		  + fr->report_buffer_current-fr->report_buffer 
-		  + fr->trigger_report_buffer_current - fr->trigger_report_buffer;
-	toSend = 0;//TODO
-	if (toSend == 0){
-		wrote0 = write(fr->sockfd, (void *) &toSend, sizeof(uint32_t));
-	}else{
-		toSend += sizeof(struct flatreport_command);
-		fr->command.flowdef_num = (fr->tuples_buffer_current - fr->tuples_buffer) / sizeof (struct flatreport_flowentry);
-		fr->command.flowstat_num = (fr->report_buffer_current - fr->report_buffer) / sizeof (struct flatreport_entry);
-		fr->command.trigger_buffusage = fr->trigger_report_buffer_current - fr->trigger_report_buffer;
-		uint32_t wrote1=0, wrote2, wrote3;
-		wrote1 += wrote2 = wrote3 = 0;
-		wrote0 += write(fr->sockfd, (void *) &toSend, sizeof(uint32_t));
-		wrote0 += write(fr->sockfd, (void *) &fr->command, sizeof(struct flatreport_command));
-		if (fr->tuples_buffer_current > fr->tuples_buffer){
-		  wrote1 = write(fr->sockfd, fr->tuples_buffer, fr->tuples_buffer_current-fr->tuples_buffer);
-		}
-		if (fr->report_buffer_current > fr->report_buffer){
-			wrote2 = write(fr->sockfd, fr->report_buffer, fr->report_buffer_current-fr->report_buffer);
-		}
-		if (fr->trigger_report_buffer_current > fr->trigger_report_buffer){
-			wrote3 = write(fr->sockfd, fr->trigger_report_buffer, fr->trigger_report_buffer_current-fr->trigger_report_buffer);
-		}
-//		printf ("wrote %d, %d, %d\n", wrote1, wrote2, wrote3);
-	}
-}*/
 
 
 __attribute__((unused)) void flatreport_makenotmatchingtriggers(struct flatreport * fr, uint32_t triggernum, uint32_t patterns, struct triggertype * type){
@@ -828,7 +784,7 @@ void flatreport_addtriggers(struct flatreport * fr, uint16_t trigger_num, uint16
 	if (trigger_num == 0 || trigger_perpkt == 0){
 		return;
 	}
-	int iprangesize = (1<<16); //this is from the generator (number of unique IPs)
+	const uint32_t iprangesize = (1<<16); //this is from the generator (number of unique IPs)
 	if (trigger_num < trigger_perpkt){
 		fprintf(stderr, "# triggers (%d) was smaller than # trigger per packet (%d)\n", trigger_num, trigger_perpkt);
 		trigger_num = trigger_perpkt;
@@ -847,44 +803,6 @@ void flatreport_addtriggers(struct flatreport * fr, uint16_t trigger_num, uint16
 	inet_aton("0.0.0.0", &a);
 	int uniquetriggers = trigger_num/trigger_perpkt;
 	uint32_t bits = log2_32(iprangesize/uniquetriggers); //need to cover iprange with these unique triggers
-	/*int levels = patterns;
-	if (levels == 0){
-		levels = 1;
-	}
-	if (levels > trigger_perpkt){
-		levels=trigger_perpkt;
-	}*/
-
-	//make pktnum trigger type
-
-
-	/*
-	char buf[SUMMARY_NAME_LEN];
-	for (j = 0; j < types_num; j++){
-		snprintf(buf, SUMMARY_NAME_LEN, "pktnum %d", j);
-		summaries[0] = summary_hassummary(fr->st, buf);
-	        if (summaries[0] == NULL){	
-	        	summaries[0] = summary_pktnum_init(buf);
-        	        if (summary_add(fr->st, summaries[0]) == NULL){
-	        		return;
-			}
-		}
-		types[j] =  triggertype_init(j, pktnum_trigger_update, counter_trigger_report, counter_trigger_free, counter_trigger_reset, counter_trigger_print, 1, summaries, 1, counter_trigger_condition, 30);
-		triggertable_addtype(fr->tt, types[j]);	
-	}*/
-
-	//make loss finder trigger
-/*	fr->lf = summary_lossfinder_init();
-	summaries[0] = summary_hassummary(fr->st, "lossnum");
-        if (summaries[0] == NULL){
-                summaries[0] = summary_lossnum_init(fr->lf, "lossnum");
-                if (summary_add(fr->st, summaries[0]) == NULL){
-			return;
-                }
-        }
-	types[1] =  triggertype_init(1, lossnum_trigger_update, counter_trigger_report, counter_trigger_free, counter_trigger_reset, counter_trigger_print, 1, summaries, 1, 30);
-	triggertable_addtype(fr->tt, types[1]);*/
-
 	
 
 	int js [uniquetriggers];
@@ -892,6 +810,9 @@ void flatreport_addtriggers(struct flatreport * fr, uint16_t trigger_num, uint16
 	for (j = 0; j < uniquetriggers; j++){
 		js[j] = j;
 	}
+
+//	uncomment to check the effect of inserting triggers
+//	shuffle (js, uniquetriggers, sizeof(int));
 
 	filtermask.dstip = htonl(0xffffffff<<bits);
 	uint32_t dstip = (((((10<<8)+0)<<8)+4)<<8)+0;

@@ -11,19 +11,7 @@ struct flowentry * flowentry_init(void){
 	return fe;
 }
 
-/*void flowentry_finish2(struct flowentry * fe){
-	if (fe->loss.first_ll != NULL){
-		losslist_finish(fe->loss.first_ll);
-		fe->loss.first_ll = NULL;
-	}
-	if (fe->burst.first_bl != NULL){
-		burstlist_finish(fe->burst.first_bl);
-		fe->burst.first_bl = NULL;
-	}
-}*/
-
 void flowentry_finish(struct flowentry * fe){
-	//flowentry_finish2(fe);
 	free(fe);
 }
 

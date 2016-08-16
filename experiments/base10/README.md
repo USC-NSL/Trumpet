@@ -1,7 +1,6 @@
 This is the guide on how to repeat the simplest experiment: sending and receivinng 10G traffic withotu any DoS attack.Note that you need two machines sender and receiver.
 - At the receiver make sure that the options at util.h and basicfwd.c are set correctly (default ones)
-- At the receiver, edit run.sh and set sender IP and senderfolder correctly (Note the IP is different from the receiver IP).
-- Make sure that you set the user right (chnage ubuntu to your username at the sender machine).
+- At the receiver, edit run.sh and set sender IP, senderfolder and sender user correctly (Note the IP is different from the receiver IP).
 - Also in sender/runsender.sh fix the path in the cd command
 - At the receiver run: ./run.sh "-t 200000000 -S 60" "-t 4096 -p 8 -P 32 -n 200000000 -d 0.000005 -T 1 -w 4 -i 10 -l base10"
 

@@ -27,31 +27,35 @@ struct triggerflow{
 	struct flowentry * fe;
 };
 
+/*
+* A linklist of triggerflowlists. 
+* These can be chained together to keep track of them in a linkedlist by themselves
+*/
 struct triggerflowlistpool{
 	struct triggerflowlist * tfl;
 	struct triggerflowlistpool * next;
 };
 
 struct triggerflowlist{
-	uint64_t fullmap;
+	uint64_t fullmap;//1 bits show an occupied entry in tf array
 	struct triggerflow tf[TRIGGERFLOW_BATCH];
 	struct triggerflowlist * next;
 };
 
 struct sweep_state{
         uint32_t index;
-        uint32_t seen;
+        uint32_t seen; // How many triggers have been seen till now
         struct triggerflowlist * tfl;
         struct triggerflowlist * tfl_last;
-	bool triggerinterrupted;
+	bool triggerinterrupted;// If we are in the middle of processing flows for a trigger
 };
 
 struct triggertable{
 	struct matcher * m;
 	struct flatreport * fr;
-	struct trigger ** violated_entries_buffer;
+	struct trigger ** violated_entries_buffer; //keep track of triggers to report (for strawman that sweeps over flow table instad of triggers)
 	struct bitmap * trigger_pos_bm;
-	struct triggerflowlist * freelist;
+	struct triggerflowlist * freelist; //keeps track of free triggerflowlistss in a linkedlist
 #if TRIGGERTABLE_INLINE_TRIGGER
         struct trigger * position_table;
 #else
@@ -60,9 +64,9 @@ struct triggertable{
 	struct sweep_state state;
 	struct triggertype * types;
 	struct triggerflowlistpool * pools;
-	uint16_t violated_entry_index;
-	uint16_t filled;
-	void * triggers_temp[FLOWENTRY_TRIGGER_SIZE];
+	uint16_t violated_entry_index; // for reporting when strawman goes over flow table entries
+	uint16_t filled; //number of added triggers
+	void * triggers_temp[FLOWENTRY_TRIGGER_SIZE]; //used for strawman that sweeps over flow table entries
 };
 
 struct triggertype{
@@ -72,11 +76,10 @@ struct triggertype{
 	trigger_condition_func condition_func;
 	uint32_t ticksperupdate;
 	uint32_t ticksperupdate2;
-	uint16_t ticksperupdate_num;
+	uint16_t ticksperupdate_num; 
 	uint16_t flow_micronum;
 	uint16_t reset_interval;
-	summarymask_t summarymask;
-	uint8_t summarynum;
+	summarymask_t summarymask; //Which summaries are necessary for this trigger?
 	uint8_t id;
 	struct triggertype * next;
 	trigger_report_func report_func;
@@ -86,7 +89,7 @@ struct triggertype{
 
 struct trigger{
 	struct triggertype * type;
-	uint32_t lastupdate;	
+	uint32_t lastreset;//the epoch number when the trigger is reset	
 	uint16_t pos;	
 	uint16_t id;
 	struct flow filter;	
@@ -101,31 +104,38 @@ struct trigger{
 	char buf[78] __attribute__((aligned(4)));
 	bool reported;	
 #endif
-	uint8_t historyindex;
+	uint8_t historyindex; //handles the history of aggregated values in the circular buffer of the trigger
 };
 
 struct triggertable * triggertable_init(struct flatreport * fr);
 void triggertable_finish(struct triggertable * tt);
+
 void triggertable_addtype(struct triggertable * tt, struct triggertype * type1);
 uint16_t triggertable_gettypenum(struct triggertable * tt);
+
 bool triggertable_addtrigger(struct triggertable * tt, struct trigger * t);
 bool triggertable_removetrigger(struct triggertable * tt, struct trigger * t);
-void triggertable_match(struct triggertable * tt, struct flowentry * fe, struct summary_table * st);
-void triggertable_update(struct triggertable * tt, struct flowentry * fe, struct summary_table * st);
-void triggertable_update2(struct triggertable * tt, struct flowentry * fe, struct flatreport_pkt * pkt);
-bool triggertable_sweep(struct triggertable * tt, uint32_t sweeptime, const uint32_t minsweepticks);
-void triggertable_sweepmatch(struct triggertable * tt, struct flowentry * fe, struct summary_table * st, uint32_t hash);
-void singletriggermatch(struct triggertable * tt, struct trigger * t, struct flowentry * fe, struct summary_table * st);
-void triggertable_startsweep(struct triggertable * tt);
-bool triggertable_issweepfinished(struct triggertable * tt);
-void triggertable_report(struct triggertable * tt);
-void triggertable_print(struct triggertable * tt);
 void triggertable_applyontriggers(struct triggertable * tt, trigger_apply_func func, void * aux); 
 struct trigger * triggertable_gettrigger(struct triggertable * tt);
+
+void triggertable_match(struct triggertable * tt, struct flowentry * fe, struct summary_table * st);
+void singletriggermatch(struct triggertable * tt, struct trigger * t, struct flowentry * fe, struct summary_table * st);
+void triggertable_update(struct triggertable * tt, struct flowentry * fe, struct summary_table * st);
+void triggertable_update2(struct triggertable * tt, struct flowentry * fe, struct flatreport_pkt * pkt);
+
+bool triggertable_sweep(struct triggertable * tt, uint32_t sweeptime, const uint32_t minsweepticks);
+void triggertable_sweepmatch(struct triggertable * tt, struct flowentry * fe, struct summary_table * st, uint32_t hash);
+void triggertable_startsweep(struct triggertable * tt);
+bool triggertable_issweepfinished(struct triggertable * tt);
+
+void triggertable_report(struct triggertable * tt);
+void triggertable_print(struct triggertable * tt);
+
 void triggertable_naivesweep(struct triggertable * tt);
 void triggertable_justmatch(struct triggertable * tt, struct flow * f, struct flow * mask, struct trigger ** temptable, uint16_t * num);
 bool triggertable_getreport(struct triggertable * tt, struct trigger * t, char * buf, uint32_t time);
 struct triggertype * triggertable_gettype(struct triggertable * tt, uint8_t type_id);
+
 
 struct triggertype * triggertype_init(uint16_t id, trigger_update_func update_func, trigger_report_func report_func, trigger_apply_func	free_func, trigger_apply_func reset_func, trigger_apply_func print_func, uint16_t reset_interval, struct summary ** s, int summarynum, trigger_condition_func condition_func, uint32_t tickspersweep);
 void triggertype_finish(struct triggertype * type);
