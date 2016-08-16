@@ -43,7 +43,7 @@ struct flatreport_pkt{
 struct flatreport{
 //per packet
 	uint32_t stat_pktnum;
-	uint32_t step;
+	uint32_t step; //epoch number
 	uint8_t pkt_q; //how many packets are in the queue for cache prefetching
 	bool lastpktisddos;
 	uint32_t stat_bursts;
