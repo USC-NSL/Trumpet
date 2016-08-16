@@ -23,8 +23,8 @@ typedef bool (*trigger_condition_func)(struct trigger * t);
 
 struct triggerflow{
 	struct flow f;
-	struct flowentry * fe;
-	uint32_t hash;
+//	struct flowentry * fe;
+//	uint32_t hash;
 };
 
 struct triggerflowlistpool{
