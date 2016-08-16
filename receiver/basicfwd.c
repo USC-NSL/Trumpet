@@ -814,7 +814,7 @@ inline static __attribute__((unused)) bool islost(struct rte_mbuf * m, struct me
 
 
 static void readpackets(struct rte_mbuf ** bufs, uint16_t nb_rx, struct measurementthread *mt) {
-	uint16_t i,j;
+	uint16_t i;
 	struct rte_mbuf * m;
 	struct ipv4_hdr * ip_hdr;
 	struct flatreport_pkt * pkt;
@@ -824,15 +824,18 @@ static void readpackets(struct rte_mbuf ** bufs, uint16_t nb_rx, struct measurem
         uint32_t pkt_seq = 0;
 	uint32_t pkt_ack = 0;
 	uint8_t proto;
-	uint16_t burst = FLATREPORT_PKT_BURST; //NOTE THIS MUST BE <= FLATREPORT_PKT_BURST
-	const uint16_t remainder = nb_rx % burst; 
-	const uint16_t loops = nb_rx/burst + (remainder>0?1:0);
 	struct flatreport * fr = mt->fr;
 	__attribute__((unused)) struct flow * prevflow;
+	__attribute__((unused)) struct workerinfo * worker;
+	const uint16_t burst = nb_rx;
+/*	uint16_t burst = FLATREPORT_PKT_BURST; //NOTE THIS MUST BE <= FLATREPORT_PKT_BURST
+	const uint16_t remainder = nb_rx % burst; 
+	const uint16_t loops = nb_rx/burst + (remainder>0?1:0);
+	int j;
 	for (j = 0; j < loops; j++, bufs += burst){
    	    if (remainder > 0 && j == loops-1){
 		burst = remainder;
-	    }
+	    }*/
 	    for (i = 0; i < burst; i++){
                 m = bufs[i];
                 PKT_PREFETCH0(m);
@@ -857,7 +860,7 @@ static void readpackets(struct rte_mbuf ** bufs, uint16_t nb_rx, struct measurem
 		}
 
 #if !NOWORKER
-        	struct workerinfo * worker = g.workers + ntohl(ip_hdr->dst_addr)%(g.worker_num); 
+        	worker = g.workers + ntohl(ip_hdr->dst_addr)%(g.worker_num); 
 		rte_prefetch0(worker);
 #endif 
 
@@ -935,7 +938,7 @@ static void readpackets(struct rte_mbuf ** bufs, uint16_t nb_rx, struct measurem
 	   flatreport_batchprocess(fr);
   #endif 
 #endif
-	}
+//	}
 }
 
 static inline void __attribute__((unused))purereadpackets(struct rte_mbuf ** bufs, struct measurementthread *mt) {

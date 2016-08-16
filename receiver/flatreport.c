@@ -260,10 +260,14 @@ void flatreport_finishsweep(struct flatreport * fr){
 void flatreport_sweep(struct flatreport * fr, uint64_t sweeptime, uint64_t start __attribute__((unused))){
 	fr->last_flowentry = NULL; //as flows may be deleted in this sweep step
 #if TRIGGERTABLE_SWEEP
+	triggertable_sweep(fr->tt, sweeptime, fr->minsweepticks);
+/*
+	//use to test sending satisfactions to the controller at the end of sweep
 	if (triggertable_sweep(fr->tt, sweeptime, fr->minsweepticks)){
 		//LOG("%"PRIu64", 1, %d\n", rte_rdtsc(), fr->step);
-        //	send_to_server(fr);
+        	send_to_server(fr);
 	}
+*/
 #else
 	uint32_t swept, totalswept;
 	struct flowentry * fe;
