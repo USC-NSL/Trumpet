@@ -87,10 +87,13 @@ struct triggertype{
 	trigger_apply_func print_func;
 };
 
+/*
+* The general structure for triggers. Use the buffer buf to store trigger specific information like threshold.
+*/
 struct trigger{
 	struct triggertype * type;
 	uint32_t lastreset;//the epoch number when the trigger is reset	
-	uint16_t pos;	
+	uint16_t pos;//index in the table of back-to-back triggers	
 	uint16_t id;
 	struct flow filter;	
 	uint16_t eventid;
@@ -109,32 +112,84 @@ struct trigger{
 
 struct triggertable * triggertable_init(struct flatreport * fr);
 void triggertable_finish(struct triggertable * tt);
+void triggertable_print(struct triggertable * tt);
 
 void triggertable_addtype(struct triggertable * tt, struct triggertype * type1);
 uint16_t triggertable_gettypenum(struct triggertable * tt);
+struct triggertype * triggertable_gettype(struct triggertable * tt, uint8_t type_id);
 
 bool triggertable_addtrigger(struct triggertable * tt, struct trigger * t);
 bool triggertable_removetrigger(struct triggertable * tt, struct trigger * t);
-void triggertable_applyontriggers(struct triggertable * tt, trigger_apply_func func, void * aux); 
+
+/*
+* returns a new trigger in the trigger table
+*/
 struct trigger * triggertable_gettrigger(struct triggertable * tt);
 
+/*
+* Apply a function on every trigger
+*/
+void triggertable_applyontriggers(struct triggertable * tt, trigger_apply_func func, void * aux); 
+
+/*
+* For the strawman that sweeps over the flow table. Matches the flow and updates the flowentry
+*/
 void triggertable_match(struct triggertable * tt, struct flowentry * fe, struct summary_table * st);
-void singletriggermatch(struct triggertable * tt, struct trigger * t, struct flowentry * fe, struct summary_table * st);
+
+/*
+* The trigger matches the flow, so just let it know so that later it can aggregate its data.
+*/
+void triggertable_singletriggermatch(struct triggertable * tt, struct trigger * t, struct flowentry * fe, struct summary_table * st);
+
+/*
+* get a list of triggers that match a flow. Num should have the max number of triggers that can be put in the temptable. When the function is returned it num will be updated with the actual number of found triggers.
+*/
+void triggertable_justmatch(struct triggertable * tt, struct flow * f, struct flow * mask, struct trigger ** temptable, uint16_t * num);
+
+/*
+* Matching function when we want to sweep over triggers. It updates the flowentry accordingly
+*/
+void triggertable_sweepmatch(struct triggertable * tt, struct flowentry * fe, struct summary_table * st, uint32_t hash);
+
+/*
+* for strawman of sweeping over flows, this will aggregate statistics and updates the triggers corresponding to the flowentry 
+*/
 void triggertable_update(struct triggertable * tt, struct flowentry * fe, struct summary_table * st);
+
+/*
+* for packet history strawman, it will update the flowentry based on the packet directly
+*/
 void triggertable_update2(struct triggertable * tt, struct flowentry * fe, struct flatreport_pkt * pkt);
 
+/*
+* Sweep over the trigger table. If multiplestep is on, it respects the sweeptime and returns true if the sweep is finished. minsweepticks tells with what granularity check the time to not pass sweeptime.
+*/
 bool triggertable_sweep(struct triggertable * tt, uint32_t sweeptime, const uint32_t minsweepticks);
-void triggertable_sweepmatch(struct triggertable * tt, struct flowentry * fe, struct summary_table * st, uint32_t hash);
+
+/*
+* sweeping for packet history strawman. It assumes the statistics of triggers are already aggregated
+*/
+void triggertable_naivesweep(struct triggertable * tt);
+
+/*
+* Start sweeping over triggers
+*/
 void triggertable_startsweep(struct triggertable * tt);
+
+/*
+* returns true if the sweep over triggers finished
+*/
 bool triggertable_issweepfinished(struct triggertable * tt);
 
+/*
+* for sweeping over flows, this will collect all reports from triggers and print a report
+*/
 void triggertable_report(struct triggertable * tt);
-void triggertable_print(struct triggertable * tt);
 
-void triggertable_naivesweep(struct triggertable * tt);
-void triggertable_justmatch(struct triggertable * tt, struct flow * f, struct flow * mask, struct trigger ** temptable, uint16_t * num);
+/*
+* Get the report for a trigger. It can return false if the data is not availbale for the requested time.
+*/
 bool triggertable_getreport(struct triggertable * tt, struct trigger * t, char * buf, uint32_t time);
-struct triggertype * triggertable_gettype(struct triggertable * tt, uint8_t type_id);
 
 
 struct triggertype * triggertype_init(uint16_t id, trigger_update_func update_func, trigger_report_func report_func, trigger_apply_func	free_func, trigger_apply_func reset_func, trigger_apply_func print_func, uint16_t reset_interval, struct summary ** s, int summarynum, trigger_condition_func condition_func, uint32_t tickspersweep);
@@ -143,6 +198,10 @@ void triggertype_finish(struct triggertype * type);
 void trigger_print2(struct trigger * t, void * aux);
 void trigger_print(struct trigger * t, void * aux);
 void trigger_cleantfl(struct trigger * t, struct triggertable * tt);
+
+/*
+* if the trigger matches the flow. Could be used for linear matching
+*/
 bool trigger_match(struct trigger * t, struct flow * f, struct flow * tempflow);
 
 struct trigger * counter_trigger_init(struct trigger * t, uint16_t eventid, uint16_t id, struct flow * filter, struct flow * mask, struct triggertype * type, uint32_t threshold);

@@ -51,7 +51,7 @@ bool matchforatrigger(void * data, void * aux){
 	if (trigger_match(t, &fe->f, &d->f)){
 //		flow_inlineprint(&fe->f);
 //		printf(" match %d\n", t->id);
-		singletriggermatch(fr->tt, t, fe, fr->st);
+		triggertable_singletriggermatch(fr->tt, t, fe, fr->st);
 	}
 	return true;
 }

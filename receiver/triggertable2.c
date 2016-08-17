@@ -468,7 +468,7 @@ inline static struct triggerflow * addflowtotrigger(struct trigger * t, struct f
 	return tf;
 }
 
-void singletriggermatch(struct triggertable * tt, struct trigger * t, struct flowentry * fe, struct summary_table * st){
+void triggertable_singletriggermatch(struct triggertable * tt, struct trigger * t, struct flowentry * fe, struct summary_table * st){
 	if (t->tfl == NULL || t->tfhead_filled == TRIGGERFLOW_BATCH){
 		maketflforatrigger(tt, t);
 	}
@@ -853,7 +853,6 @@ void trigger_print(struct trigger * t, void * aux __attribute__((unused))){
 	LOG("%u (%u)  %"PRIu32" %s", t->eventid, t->id, t->matched, buf);
 }
 
-
 void trigger_print2(struct trigger * t, void * aux __attribute__((unused))){
 	printf("id %u, filter ", (unsigned) t->id);
 	flow_inlineprint(&t->filter);
@@ -865,7 +864,6 @@ void trigger_print2(struct trigger * t, void * aux __attribute__((unused))){
 	t->type->print_func(t, buf);
 	printf("%s\n", buf);
 }
-
 
 inline bool triggertable_getreport(struct triggertable * tt, struct trigger * t, char * buf, uint32_t time){
 	if (tt->fr->step < time){
