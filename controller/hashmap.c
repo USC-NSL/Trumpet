@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h> 
 #include <string.h>
-#include <inttypes.h>
 #include "util.h"
 
 #define getdata(H2, EZ) (((uint8_t *)EZ)-H2->elem_offset)
@@ -13,6 +12,7 @@
 
 #define NULL_PREV 0xffffffff //don't rely on this to check if prev exits or not, it is just for debugging
 
+//TODO: using bitmap is not well tested in the new implementation
 
 int findemptycollisionentry(struct hashmap * h2, void * data, void * aux);
 void swapentries(struct hashmap * h2, void * data1, void * data2, hashmap_elem * e_last2);
@@ -95,7 +95,17 @@ void hashmap_remove(struct hashmap * h2, void * data2){
 
 struct hashmap * hashmap_init(uint32_t size, uint32_t collision_size, uint32_t entry_size, uint16_t elem_offset,  hashmap_replace_func replace_func){
 	struct hashmap * h2 = MALLOC (sizeof (struct hashmap));
-	h2->buffer = BIGMALLOC((size + collision_size) * entry_size);
+	int totalsize = (size + collision_size) * entry_size;
+	if (totalsize < (1<<16)){
+		h2->buffer = MALLOC(totalsize);
+	}else{
+		h2->buffer = BIGMALLOC(totalsize);
+	}
+	if (h2->buffer == NULL){
+		fprintf(stderr, "HASHMAP: Cannot get buffer memory\n");
+		FREE(h2);
+		return NULL;
+	}
 	h2->entry_size = entry_size; 
 	h2->elem_offset = elem_offset;
 	h2->size = size;
@@ -125,7 +135,12 @@ void hashmap_finish(struct hashmap * h2){
 	if (h2->bm != NULL){
 		bitmap_finish(h2->bm);
 	}
-	BIGFREE(h2->buffer);
+	int totalsize = (h2->size + h2->collision_size) * h2->entry_size;
+	if (totalsize < (1<<16)){
+		FREE(h2->buffer);
+	}else{
+		BIGFREE(h2->buffer);
+	}
 	FREE(h2);
 }
 

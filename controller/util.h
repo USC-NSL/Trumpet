@@ -38,10 +38,4 @@ void shuffle (void * array, size_t n, size_t size);
 
 extern struct loguser * util_lu; 
 
-/*void util_init(void);
-void util_finish(void);
-void util_loglock(void);
-void util_logunlock(void);*/
-
-
 #endif /* util.h */

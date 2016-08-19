@@ -9,27 +9,6 @@
 
 struct loguser * util_lu = NULL;
 
-/*static pthread_mutex_t log_lock;
-
-void util_init(void){
-	pthread_mutexattr_t Attr;
-	pthread_mutexattr_init(&Attr);
-	pthread_mutexattr_settype(&Attr, PTHREAD_MUTEX_RECURSIVE);
-	pthread_mutex_init(&log_lock, &Attr);
-}
-
-void util_finish(void){
-	pthread_mutex_destroy(&log_lock);
-}
-
-void util_loglock(void){
-	pthread_mutex_lock(&log_lock);
-}
-
-void util_logunlock(void){
-	pthread_mutex_unlock(&log_lock);
-}*/
-
 // from http://stackoverflow.com/questions/1493936/faster-approach-to-checking-for-an-all-zero-buffer-in-c
 inline bool is_empty2(void *buf2, uint32_t size){
     char * buf = (char *) buf2;

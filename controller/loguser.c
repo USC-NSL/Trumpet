@@ -3,13 +3,15 @@
 #include <stdint.h>
 #include <string.h> 
 #include <unistd.h>
-#include "util.h"
-
 #include <rte_ring.h>
 #include <rte_mempool.h>
+#include "util.h"
+
+#define DELAY_MAX_US 500
+#define DELAY_INC_US 10
+#define DELAY_DIVIDE_US 2
 
 void * loguser_report(void * data);
-
 
 struct logline{
 	int tid;
@@ -30,6 +32,9 @@ bool loguser_registerthread(struct loguser * lu,  const char * filename){
 	return true;
 }
 
+/*
+* The thread that logs into files
+*/
 void * loguser_report(void * data){ //for two threads
 	struct loguser * lu = (struct loguser * ) data;
 	set_CPU(lu->core);
@@ -39,14 +44,14 @@ void * loguser_report(void * data){ //for two threads
 	while (true){
 		n = rte_ring_sc_dequeue(lu->ring, (void **)&m);
 		if (n >= 0){
-			if (m==NULL){continue;}
-			//find logfile
+			if (m == NULL){continue;}
+			//find logfile in a linear fashion. TODO: make hashtable
 			for (lf = lu->lfh; lf->next != NULL && lf->tid != m->tid; lf = lf->next); //last is the default
 	
 			len = strnlen(m->buffer, LOGLINEBUFFER_LEN);
 			fwrite(m->buffer, 1, len, lf->fd);
-			if (lu->delay > 10){ //AIMD
-				lu->delay /= 2;
+			if (lu->delay > DELAY_INC_US){ //AIMD
+				lu->delay /= DELAY_DIVIDE_US;
 			}
 			rte_mempool_put(lu->mem, m);
 		}else{
@@ -57,8 +62,8 @@ void * loguser_report(void * data){ //for two threads
 				break;
 			}
 			usleep(lu->delay);
-			if (lu->delay < 500){ //AIMD
-				lu->delay+=10;
+			if (lu->delay < DELAY_MAX_US){ //AIMD
+				lu->delay += DELAY_INC_US;
 			}
 
 			for (lf = lu->lfh; lf != NULL; lf = lf->next){
@@ -77,6 +82,7 @@ struct loguser * loguser_init(uint32_t size, const char * filename, uint16_t cor
 	snprintf(lfh->filename, 100, "%s.txt", filename);
 	lfh->tid = 0;
 	lfh->fd = fopen(lfh->filename, "w+");
+	lu->fullerror = false;
 	if (lfh->fd == NULL){
 		fprintf(stderr, "cannot write to log file %s\n",lfh->filename);
 		return lu;
@@ -95,7 +101,7 @@ struct loguser * loguser_init(uint32_t size, const char * filename, uint16_t cor
                                        NULL,      NULL,
                                        rte_socket_id(), 0);
 
-	lu->delay = 500;
+	lu->delay = DELAY_MAX_US;
 	lu->core = core;
 	lu->finish = false;
 	pthread_create(&lu->pth, NULL, loguser_report, lu);
@@ -133,7 +139,10 @@ void loguser_add(struct loguser * lu, const char * format, ...){
 	m->tid = (int)pthread_self();
 	int ret1 = rte_ring_enqueue(lu->ring, m);
         if (ret1 != 0){
-                fprintf(stderr, "loguser ring is full\n");
+		if (!lu->fullerror){
+			lu->fullerror = true;
+        	        fprintf(stderr, "loguser ring is full\n");
+		}
                 rte_mempool_put(lu->mem, m);
                 return;
         }

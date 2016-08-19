@@ -43,12 +43,29 @@ struct flowentry{
 };
 
 struct flowentry * flowentry_init(void);
+
+/*
+* if the flow entry is already inside the flow table use flatreport_flowentry_finish
+*/
 void flowentry_finish (struct flowentry * fe);
-//void flowentry_finish2(struct flowentry * fe);
+
+/*
+* if two flow entries are equal
+*/
 bool flowentry_equal(void * data1, void * data2, void * aux);
+
+/*
+*/
 bool flowentry_print2(uint16_t id, void * data, void * aux);
-void flowentry_unset_cachedtrigger(struct flowentry * fe);
+
+/*
+* to compare a flow and a flowentry
+*/
 bool flowflowentry_equal(void * newdata, void * data2, void * aux);
+
+/*
+* To init a flowentry (data2) using a flow (newdata)
+*/
 void flowflowentry_init(void * newdata, void * data2, void * aux);
 bool flowentry_isobsolete(struct flowentry * fe, uint32_t step);
 

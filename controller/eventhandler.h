@@ -22,6 +22,7 @@ enum dc_param_type{
 	dcpt_pointer,
 };
 
+//carry a number or a pointer as parameter to a dc function
 struct dc_param{
 	union{
 		uint64_t num;
@@ -95,26 +96,68 @@ struct eventhandler{
 };
 struct delayedcommand * delayedcommand_init(uint64_t timeus);
 void delayedcommand_finish(struct delayedcommand * dc);
-	
 
-void eventhandler_syncepoch(int ms);
+
 struct eventhandler * eventhandler_init(struct usecase * u);
 void eventhandler_finish(struct eventhandler * eh);
+	
 void eventhandler_delevent(struct eventhandler * eh, struct event * e);
+
+/*
+* Get a new event
+*/
 struct event * eventhandler_getevent(struct eventhandler * eh);
+
+/*
+* The server said if it could/coundn't add the trigger. What should the event do?
+*/
 void eventhandler_addtrigger_return(struct eventhandler * eh, uint16_t eventid, bool success, struct serverdata *server, uint32_t time);
+
+/*
+* Notify the receipt of a trigger satisfacction or poll reply from a server
+*/
 void eventhandler_notify(struct eventhandler * eh, uint16_t eventid, struct serverdata * server, uint32_t time, char * buf, bool satisfaction_or_query, uint16_t code);
+
+/*
+* Get epoch number
+*/
 uint32_t eventhandler_gettime(struct eventhandler * eh);
+
+/*
+* Get time from the eventhandle init time in nanosecond
+*/
 uint64_t eventhandler_gettime_(struct eventhandler *eh);
+
 void eventhandler_addserver(struct eventhandler *eh, struct serverdata *server);
 void eventhandler_removeserver(struct eventhandler *eh, struct serverdata * server);
+
+/*
+* Get number of active servers
+*/
 uint16_t eventhandler_activeservers(struct eventhandler *eh);
+
+/*
+* Add a delayed command
+*/
 void eventhandler_adddc(struct eventhandler * eh, struct delayedcommand * dc2);
 
-void event_fill(struct event * e, struct trigger * t, char * buf);
+/*
+* Ge the servers that may receive or send traffic that matters to the event e
+* servers memory must be allocated before calling the function
+* returns the number of found servers
+*/
 uint16_t eventhandler_getserversforevent(struct eventhandler * eh, struct event * e, struct serverdata ** servers);
+
+/*
+* returns until the time is a multiple of passed ms
+*/
+void eventhandler_syncepoch(int ms);
+
+
+/*
+* Fills the buffer based on the event information (e.g., threshold) to be passed with trigger install command to the server
+*/
+void event_fill(struct event * e, struct trigger * t, char * buf);
 bool event_print(void * data, void * aux);
-
-
 
 #endif /* eventhandler.h */

@@ -241,12 +241,12 @@ void triggertable_naivesweep(struct triggertable * tt){
                 type = t->type;
 		seen ++;
 		//set for reporting if necessary
-                if (tt->fr->step - t->lastupdate >= type->reset_interval){
+                if (tt->fr->step - t->lastreset >= type->reset_interval){
                         if (type->condition_func(t)){
 				flatreport_report(tt->fr, t);
                         }
                         type->reset_func(t, tt);
-                        t->lastupdate = tt->fr->step;
+                        t->lastreset = tt->fr->step;
                 }
 	}
 }
@@ -398,12 +398,12 @@ bool triggertable_sweep(struct triggertable * tt, uint32_t sweeptime, const uint
 			}
 		}
 		//set for reporting if necessary
-		if (fr->step - t->lastupdate >= type->reset_interval){
+		if (fr->step - t->lastreset >= type->reset_interval){
 			if (type->condition_func(t)){
 				flatreport_report(tt->fr, t);
 			}
 			type->reset_func(t, tt);
-			t->lastupdate = fr->step;
+			t->lastreset = fr->step;
 		}
 
 		state->seen++;  //must be after interruption, don't put in for declaration
@@ -468,7 +468,7 @@ inline static struct triggerflow * addflowtotrigger(struct trigger * t, struct f
 	return tf;
 }
 
-void singletriggermatch(struct triggertable * tt, struct trigger * t, struct flowentry * fe, struct summary_table * st){
+void triggertable_singletriggermatch(struct triggertable * tt, struct trigger * t, struct flowentry * fe, struct summary_table * st){
 	if (t->tfl == NULL || t->tfhead_filled == TRIGGERFLOW_BATCH){
 		maketflforatrigger(tt, t);
 	}
@@ -588,9 +588,9 @@ void triggertable_update2(struct triggertable * tt, struct flowentry * fe, struc
 		t = triggers[i];
 
 		//lazy reset
-		if (t->lastupdate - tt->fr->step > t->type->reset_interval){
+		if (t->lastreset - tt->fr->step > t->type->reset_interval){
 			t->type->reset_func(t, tt);
-			t->lastupdate = tt->fr->step;
+			t->lastreset = tt->fr->step;
 		}	
 			
 		// now update
@@ -634,9 +634,9 @@ void triggertable_update(struct triggertable * tt, struct flowentry * fe, struct
 		t = triggers[i];
 
 		//lazy reset
-		if (t->lastupdate - tt->fr->step > t->type->reset_interval){
+		if (t->lastreset - tt->fr->step > t->type->reset_interval){
 			t->type->reset_func(t, tt);
-			t->lastupdate = tt->fr->step;
+			t->lastreset = tt->fr->step;
 		}	
 			
 		// now update
@@ -652,6 +652,10 @@ void triggertable_update(struct triggertable * tt, struct flowentry * fe, struct
 	}
 }
 
+
+/*
+* The old code that is used for the TCP (burst loss example)
+*/
 void triggertable_report(struct triggertable * tt){
 	int i;
 //	struct flatreport * fr = tt->fr;
@@ -759,7 +763,6 @@ struct triggertype * triggertype_init(uint16_t id, trigger_update_func update_fu
 		type->s[i] = s[i];
 		type->summarymask |= 1<<s[i]->index;
 	}
-	type->summarynum = summarynum;
 	return type;
 }
 
@@ -786,7 +789,7 @@ void trigger_init(uint16_t id, uint16_t eventid, struct trigger * t, struct flow
 		//flow_fill(&t->filter, filter);
 		flow_fill(&t->mask, mask);
 		//t->reported = false;
-		t->lastupdate = 0;
+		t->lastreset = 0;
 		t->type = type;
 	}else{
 		fprintf(stderr, "Filter doesn't match the mask\n");
@@ -850,7 +853,6 @@ void trigger_print(struct trigger * t, void * aux __attribute__((unused))){
 	LOG("%u (%u)  %"PRIu32" %s", t->eventid, t->id, t->matched, buf);
 }
 
-
 void trigger_print2(struct trigger * t, void * aux __attribute__((unused))){
 	printf("id %u, filter ", (unsigned) t->id);
 	flow_inlineprint(&t->filter);
@@ -862,7 +864,6 @@ void trigger_print2(struct trigger * t, void * aux __attribute__((unused))){
 	t->type->print_func(t, buf);
 	printf("%s\n", buf);
 }
-
 
 inline bool triggertable_getreport(struct triggertable * tt, struct trigger * t, char * buf, uint32_t time){
 	if (tt->fr->step < time){

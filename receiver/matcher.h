@@ -1,7 +1,11 @@
 #ifndef MATCHER_H
 #define MATCHER_H 1
-#include "flowentry.h"
+#include "flow.h"
+#include "hashmap.h"
 
+/*
+* A hash table for filters of triggers as a linkedlist entry
+*/
 struct table {
 	struct flow mask;
 	struct table * next;
