@@ -57,7 +57,7 @@ inline bool getmessagebuffer(struct client * c, struct messageheader **h, void *
 	return true;
 }
 
-struct client * client_init(char * ip, uint16_t port){
+struct client * client_init(char * ip, uint16_t port, uint16_t reportinterval){
 	struct client * c = MALLOC(sizeof(struct client));
         c->finish = false;
 	c->inbuf_head = 0;
@@ -66,6 +66,7 @@ struct client * client_init(char * ip, uint16_t port){
 	c->hasdatatoread = true;
 	c->readseqnum = 0;
 	c->rl_lastindex = -1;	
+	c->reportinterval = reportinterval;
 	connect_to_server(c, ip, port);
 
 	c->rl = NULL;
@@ -253,7 +254,7 @@ void addtrigger(struct client * c, struct message_addtrigger * m2){
 	}else{
 		t = triggertable_gettrigger(c->fr->tt);
 		uint32_t threshold = *((uint32_t *)((intptr_t)m2->buf + 1));
-        	t = counter_trigger_init(t, m2->eventid, m2->eventid*100, &m2->f, &m2->mask, type, threshold);
+        	t = counter_trigger_init(t, m2->eventid, m2->eventid*100, &m2->f, &m2->mask, type, threshold, m2->timeinterval/c->reportinterval);
 	        triggertable_addtrigger(c->fr->tt, t);
 		trigger_print(t, NULL);
 		flatreport_matchforatrigger(c->fr, t);

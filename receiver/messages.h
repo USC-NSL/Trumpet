@@ -32,6 +32,7 @@ struct message_addtrigger{
         struct flow f;
         struct flow mask;
         uint32_t eventid;
+	uint16_t timeinterval;
         char buf[MESSAGE_BUFSIZE];
         //uint32_t type_id;
 };

@@ -177,7 +177,7 @@ bool ReadXBytes(int fd, uint32_t x, char * buffer, bool force, uint16_t * bytesR
 
 bool readbuffer(struct serverdata  * server){
         uint16_t bytesRead;
-        if (SERVERDATA_BUFSIZE - server->inbuf_tail < 64){
+        if (SERVERDATA_BUFSIZE - server->inbuf_tail < MESSAGE_MAXSIZE){
                 printf("serverdata %d: small bufsize %d %d\n", server->id, server->inbuf_head, server->inbuf_tail);
                 return false;
         }
@@ -358,6 +358,7 @@ void serverdata_addtrigger(struct serverdata * server, struct event * e, struct 
 	m->eventid = e->id;
 	flow_fill(&m->f, &e->f);
 	flow_fill(&m->mask, &e->mask);
+	m->timeinterval = e->timeinterval;
 	event_fill(e, t, m->buf);
 	
 	sendtoserver(server, h);

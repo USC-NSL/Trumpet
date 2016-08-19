@@ -241,7 +241,7 @@ void triggertable_naivesweep(struct triggertable * tt){
                 type = t->type;
 		seen ++;
 		//set for reporting if necessary
-                if (tt->fr->step - t->lastreset >= type->reset_interval){
+                if (tt->fr->step - t->lastreset >= t->reset_interval){
                         if (type->condition_func(t)){
 				flatreport_report(tt->fr, t);
                         }
@@ -398,7 +398,7 @@ bool triggertable_sweep(struct triggertable * tt, uint32_t sweeptime, const uint
 			}
 		}
 		//set for reporting if necessary
-		if (fr->step - t->lastreset >= type->reset_interval){
+		if (fr->step - t->lastreset >= t->reset_interval){
 			if (type->condition_func(t)){
 				flatreport_report(tt->fr, t);
 			}
@@ -588,7 +588,7 @@ void triggertable_update2(struct triggertable * tt, struct flowentry * fe, struc
 		t = triggers[i];
 
 		//lazy reset
-		if (t->lastreset - tt->fr->step > t->type->reset_interval){
+		if (t->lastreset - tt->fr->step > t->reset_interval){
 			t->type->reset_func(t, tt);
 			t->lastreset = tt->fr->step;
 		}	
@@ -634,7 +634,7 @@ void triggertable_update(struct triggertable * tt, struct flowentry * fe, struct
 		t = triggers[i];
 
 		//lazy reset
-		if (t->lastreset - tt->fr->step > t->type->reset_interval){
+		if (t->lastreset - tt->fr->step > t->reset_interval){
 			t->type->reset_func(t, tt);
 			t->lastreset = tt->fr->step;
 		}	
@@ -741,7 +741,7 @@ void triggertable_print(struct triggertable * tt __attribute__((unused))){
 
 
 ///////////////////////////////// TRIGGER TYPE /////////////////////////
-struct triggertype * triggertype_init(uint16_t id, trigger_update_func update_func, trigger_report_func report_func, trigger_apply_func	free_func, trigger_apply_func reset_func, trigger_apply_func print_func, uint16_t reset_interval, struct summary ** s, int summarynum, trigger_condition_func condition_func, uint32_t ticksperupdate){
+struct triggertype * triggertype_init(uint16_t id, trigger_update_func update_func, trigger_report_func report_func, trigger_apply_func	free_func, trigger_apply_func reset_func, trigger_apply_func print_func, struct summary ** s, int summarynum, trigger_condition_func condition_func, uint32_t ticksperupdate){
 	struct triggertype * type = MALLOC(sizeof(struct triggertype));
 	type->id = id;
 	type->update_func = update_func;
@@ -749,7 +749,6 @@ struct triggertype * triggertype_init(uint16_t id, trigger_update_func update_fu
 	type->free_func = free_func;
 	type->reset_func = reset_func;
 	type->print_func = print_func;
-	type->reset_interval = reset_interval;
 	type->condition_func = condition_func;
 	type->next = NULL;
 	type->flow_micronum = 0;
@@ -909,11 +908,15 @@ inline uint32_t counter_trigger_getvalue(struct trigger * t){
 }
 
 
-struct trigger * counter_trigger_init(struct trigger * t, uint16_t eventid, uint16_t id, struct flow * filter, struct flow * mask, struct triggertype * type, uint32_t threshold){
+struct trigger * counter_trigger_init(struct trigger * t, uint16_t eventid, uint16_t id, struct flow * filter, struct flow * mask, struct triggertype * type, uint32_t threshold, uint16_t timeinterval){
 	trigger_init(id, eventid, t, filter, mask, type);
 	counter_trigger_setthreshold(t, threshold);
 	t->historyindex = 4; //reserve 4 for threshold;
 	counter_trigger_setvalue(t, 0);
+	t->reset_interval = timeinterval;
+	if (t->reset_interval == 0 ){
+		t->reset_interval = 1;
+	}
 	return t;
 }
 

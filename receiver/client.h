@@ -36,6 +36,7 @@ struct client{
 	uint16_t inbuf_tail;
 	uint16_t inbuf_head;
 	uint16_t outbuf_tail;
+	uint16_t reportinterval;
 	bool finish;
 	bool hasdatatoread;
 	uint8_t readseqnum; // for debug message to optimize poll time & to know if client actually checked the input buffer
@@ -45,7 +46,7 @@ struct client{
 /*
 * instantiates the client object and connects to the server. 
 */
-struct client * client_init(char * ip, uint16_t port);
+struct client * client_init(char * ip, uint16_t port, uint16_t reportinterval);
 
 void client_finish(struct client * c);
 

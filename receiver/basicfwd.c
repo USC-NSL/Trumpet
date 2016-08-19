@@ -995,7 +995,7 @@ static void measurementthread_prepare(struct measurementthread * mt){
 	}
 #endif
 	usleep(mt->id * 100); // just to order ids at the controller!
-	struct client * c = client_init(g.controllerip, g.controllerport);
+	struct client * c = client_init(g.controllerip, g.controllerport, g.reportinterval);
 	mt->fr = flatreport_init(dt, c);
 
 	struct triggertype * types [4];

@@ -78,7 +78,6 @@ struct triggertype{
 	uint32_t ticksperupdate2;
 	uint16_t ticksperupdate_num; 
 	uint16_t flow_micronum;
-	uint16_t reset_interval;
 	summarymask_t summarymask; //Which summaries are necessary for this trigger?
 	uint8_t id;
 	struct triggertype * next;
@@ -99,6 +98,7 @@ struct trigger{
 	struct flow mask;
 	uint32_t matched;
 	uint16_t eventid;
+	uint16_t reset_interval;
 	uint8_t historyindex;//handles the history of aggregated values in the circular buffer of the trigger
 #if TRIGGERTABLE_SWEEP
 	uint8_t tfhead_filled;
@@ -192,7 +192,7 @@ void triggertable_report(struct triggertable * tt);
 bool triggertable_getreport(struct triggertable * tt, struct trigger * t, char * buf, uint32_t time);
 
 
-struct triggertype * triggertype_init(uint16_t id, trigger_update_func update_func, trigger_report_func report_func, trigger_apply_func	free_func, trigger_apply_func reset_func, trigger_apply_func print_func, uint16_t reset_interval, struct summary ** s, int summarynum, trigger_condition_func condition_func, uint32_t tickspersweep);
+struct triggertype * triggertype_init(uint16_t id, trigger_update_func update_func, trigger_report_func report_func, trigger_apply_func	free_func, trigger_apply_func reset_func, trigger_apply_func print_func, struct summary ** s, int summarynum, trigger_condition_func condition_func, uint32_t tickspersweep);
 void triggertype_finish(struct triggertype * type);
 
 void trigger_print2(struct trigger * t, void * aux);
@@ -204,7 +204,7 @@ void trigger_cleantfl(struct trigger * t, struct triggertable * tt);
 */
 bool trigger_match(struct trigger * t, struct flow * f, struct flow * tempflow);
 
-struct trigger * counter_trigger_init(struct trigger * t, uint16_t eventid, uint16_t id, struct flow * filter, struct flow * mask, struct triggertype * type, uint32_t threshold);
+struct trigger * counter_trigger_init(struct trigger * t, uint16_t eventid, uint16_t id, struct flow * filter, struct flow * mask, struct triggertype * type, uint32_t threshold, uint16_t timeinterval);
 bool counter_trigger_report(struct trigger * t, uint32_t stepsback, char * buf);
 
 void counter_trigger_free(struct trigger * t, void * aux);
