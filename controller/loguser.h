@@ -19,6 +19,10 @@ struct logfile{
 	void * next;
 };
 
+/*
+* The logger that logs lines into a file as a separate thread. 
+* The thread has dynamic sleep time to save CPU
+*/
 struct loguser{
 	struct rte_ring * ring;
 	struct rte_mempool * mem;
@@ -27,11 +31,20 @@ struct loguser{
 	uint16_t delay;
 	uint16_t core;
 	struct logfile * lfh;
+	bool fullerror;
 };
 
 struct loguser * loguser_init(uint32_t size, const char * filename, uint16_t core);
-void loguser_add(struct loguser * lu, const char * format, ...);
 void loguser_finish(struct loguser * lu);
+
+/*
+* Add a line to the log. The format is similar to printf
+*/
+void loguser_add(struct loguser * lu, const char * format, ...);
+
+/*
+* We can have multiple log files. Once a thread registers all loguser_add calls will write to the new file created for that thread
+*/
 bool loguser_registerthread(struct loguser * lu,  const char * filename);
 
 #endif /* loguser.h */

@@ -34,6 +34,7 @@ void serverdata_print(struct serverdata * server);
 bool getmessagebuffer(struct serverdata * server, struct messageheader **h, void ** buf, int bufsize);
 void flushtoserver(struct serverdata * server);
 bool sendtoserver(struct serverdata * server, void * m);
+void * serverdata_read(void * _);
 
 inline bool getmessagebuffer(struct serverdata * server, struct messageheader **h, void ** buf, int bufsize __attribute__((unused))){
 	char * m;
@@ -314,7 +315,7 @@ void serverdata_hello(struct serverdata * server, struct message_hello * m){
         h->length = sizeof(struct message_hello);
 	m2->id = 0;
 	m2->time = 0;
-	eventhandler_syncepoch(10);
+	eventhandler_syncepoch(10); //sync the reply to the server with the epoch at controller
 	sendtoserver(server, h);
 	flushtoserver(server);
 	server->joiningtime = eventhandler_gettime(server->eh);

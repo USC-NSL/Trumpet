@@ -12,6 +12,7 @@
 
 #define NULL_PREV 0xffffffff //don't rely on this to check if prev exits or not, it is just for debugging
 
+//TODO: using bitmap is not well tested in the new implementation
 
 int findemptycollisionentry(struct hashmap * h2, void * data, void * aux);
 void swapentries(struct hashmap * h2, void * data1, void * data2, hashmap_elem * e_last2);
@@ -20,6 +21,11 @@ void copyelem(hashmap_elem * e1, hashmap_elem *e2);
 
 uint16_t hashmap_fullpercent(struct hashmap * h2){
 	return h2->filled * 100 / h2->size;
+}
+
+
+uint32_t hashmap_getfull(struct hashmap * h2){
+	return h2->filled + h2->collisions;
 }
 
 void hashmap_remove(struct hashmap * h2, void * data2){
