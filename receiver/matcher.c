@@ -6,10 +6,12 @@ bool matcherlist_head_flowequal(void * data1, void * data2, void * aux __attribu
 bool matcherlist_head_equal(void * data1, void * data2, void * aux __attribute__((unused)));
 struct table * findtable(struct matcher * m, struct flow * mask);
 
-struct table * table_init(struct flow * mask);
+void table_maskinit(void * m, void * data, void * aux);
 void table_finish(struct table * tbl);
 bool table_add(struct table * tbl, struct flow * f, void * data);
 bool table_remove(struct table * tbl, struct flow * f, void * data, matcher_dataequal_func func, void ** removed);
+bool table_finish2(void * data, void * aux);
+bool table_maskequal(void * data1, void * data2, void * aux);
 
 struct matcherlist_entry{
         struct matcherlist_entry * next;
@@ -20,7 +22,6 @@ struct matcherlist_head{
         struct flow f;
         hashmap_elem e;
 	struct matcherlist_entry mle;
-
 };
 
 
@@ -46,62 +47,47 @@ bool matcherlist_head_equal(void * data1, void * data2, void * aux __attribute__
         return flow_equal(&mlh1->f, &mlh2->f);
 }
 
-void matcher_matchmask(struct matcher * m, struct flow * f2, struct flow * mask, void ** dataarr, uint16_t * size){
-	struct table * tbl;
+static inline int matcher_tablematch(struct table * tbl, struct flow * f2, void ** dataarr, uint16_t * size){
 	struct flow f;
-	uint16_t i;
-	struct matcherlist_entry * mle;
-	i = 0;
-
-	for (tbl = m->tables; tbl != NULL; tbl = tbl->next){
-		if (flow_equal(&tbl->mask, mask)){
-			flow_mask(&f, f2, &tbl->mask);
-			struct matcherlist_head * mlh = hashmap_get2(tbl->map, &f, flow_hash(&f), matcherlist_head_flowequal, NULL);
-			if (mlh != NULL){
-				for (mle = &mlh->mle; mle != NULL; mle = mle->next){
-					if (likely(i < *size)){
-						*(dataarr + i) = mle->data;
-						i++;
-					}
-				}
+	uint16_t i = 0;
+	flow_mask(&f, f2, &tbl->mask);
+	struct matcherlist_head * mlh = hashmap_get2(tbl->map, &f, flow_hash(&f), matcherlist_head_flowequal, NULL);
+	if (mlh != NULL){
+		struct matcherlist_entry * mle;
+		for (mle = &mlh->mle; mle != NULL; mle = mle->next){
+			if (unlikely(i >= *size)){
+				break;
 			}
+			*(dataarr + i) = mle->data;
+			i++;
 		}
 	}
-	*size = i;
+	return i;
 }
 
-//runs func on any match
+void matcher_matchmask(struct matcher * m, struct flow * f2, struct flow * mask, void ** dataarr, uint16_t * size){
+	struct table * tbl = findtable(m, mask);
+	if (tbl == NULL){
+		*size = 0;
+		return;
+	}
+
+	*size = matcher_tablematch(tbl, f2, dataarr, size);
+}
+
 void matcher_match(struct matcher * m, struct flow * f2, void ** dataarr, uint16_t * size){
 	//go through tables
 	struct table * tbl;
-	struct flow f;
-	uint16_t i;
-	struct matcherlist_entry * mle;
-	i = 0;
+	uint16_t s = *size;
 	for (tbl = m->tables; tbl != NULL; tbl = tbl->next){
-		flow_mask(&f, f2, &tbl->mask);
-		struct matcherlist_head * mlh = hashmap_get2(tbl->map, &f, flow_hash(&f), matcherlist_head_flowequal, NULL);
-		if (mlh != NULL){
-			for (mle = &mlh->mle; mle != NULL; mle = mle->next){
-				if (likely(i < *size)){
-					*(dataarr + i) = mle->data;
-					i++;
-				}
-			}
-		}
+		*size -= matcher_tablematch(tbl, f2, dataarr, size);	
 	}
-	*size = i;
+
+	*size = s - *size;
 }
 
-struct table * findtable(struct matcher * m, struct flow * mask){
-        struct table * tbl = m->tables;
-        while (tbl != NULL){
-                if (flow_equal(&tbl->mask, mask)){
-                        return tbl;
-                }
-                tbl = tbl->next;
-        }
-        return NULL;
+inline struct table * findtable(struct matcher * m, struct flow * mask){
+	return (struct table *) hashmap_get2(m->masktable, mask, flow_hash(mask), table_maskequal, NULL);
 }
 
 //it may add duplicates
@@ -113,14 +99,13 @@ bool matcher_add (struct matcher * m, struct flow * f, struct flow * mask, void 
 	//find the table
         struct table * tbl2 = findtable(m, mask);
         if (tbl2 == NULL){ //add table
-                tbl2 = table_init(mask);
+		tbl2 = hashmap_add2(m->masktable, mask, flow_hash(mask), table_maskequal, table_maskinit, NULL);
+               // tbl2 = table_init(mask);
                 if (m->tables == NULL){
                         m->tables = tbl2;
                 }else{
-                        struct table * tbl = m->tables;
-                        while (tbl->next != NULL){
-                                tbl = tbl->next;
-                        }
+                        struct table * tbl;
+			for (tbl = m->tables; tbl->next != NULL; tbl = tbl->next);
                         tbl->next = tbl2;
                 }
         }
@@ -128,7 +113,7 @@ bool matcher_add (struct matcher * m, struct flow * f, struct flow * mask, void 
 }
 
 //deletes only one if it finds equal
-bool matcher_remove (struct matcher * m, struct flow * f, struct flow * mask, void * data, matcher_dataequal_func func, void ** removed){
+bool matcher_remove(struct matcher * m, struct flow * f, struct flow * mask, void * data, matcher_dataequal_func func, void ** removed){
 	struct table * tbl = findtable(m, mask);
         if (tbl != NULL){
                 if (table_remove(tbl, f, data, func, removed)){
@@ -143,41 +128,53 @@ bool matcher_remove (struct matcher * m, struct flow * f, struct flow * mask, vo
 }
 
 struct matcher * matcher_init(void){
-	struct matcher * m = (struct matcher *)MALLOC (sizeof(struct  matcher));
+	struct matcher * m = (struct matcher *)MALLOC (sizeof(struct matcher));
+	uint16_t entry_size = entry_size_64(sizeof(struct table));
+	m->masktable = hashmap_init(1<<10, 1<<10, entry_size, offsetof(struct table, e), NULL);
 	m->tables = NULL;
 	return m;
 }
 
 void matcher_finish(struct matcher * m){
-	struct table * tbl;
+	hashmap_apply(m->masktable, table_finish2, NULL);
+	hashmap_finish(m->masktable);
+/*	struct table * tbl;
 	struct table * tbl2;
 	int i = 0;
 	for (tbl = m->tables; tbl != NULL; tbl = tbl2){
 		tbl2 = tbl->next;
 		table_finish(tbl);
 		i++;
-	}
-	printf("Matcher %d tables\n", i);
+	}*/
 	FREE(m);
 }
 
 
 ///////////////////////////////// TABLE /////////////////////////
 
-struct table * table_init(struct flow * mask){
-	struct table * tbl = MALLOC(sizeof (struct table));
+void table_maskinit(void * m, void * data, void * aux __attribute__((unused))){
+	struct flow * mask = (struct flow *) m;
+	struct table * tbl = (struct table *) data;
 	flow_fill(&tbl->mask, mask);
 	
 	uint16_t entry_size = entry_size_64(sizeof(struct matcherlist_head));
 	tbl->map = hashmap_init(1<<14, 1<<13, entry_size, offsetof(struct matcherlist_head, e), NULL);
 	tbl->next = NULL;
-	return tbl;
 }
 
-void table_finish(struct table * tbl){
+bool table_finish2(void * data, void * aux __attribute__((unused))){
+	table_finish((struct table*)data);
+	return true;
+}
+
+inline void table_finish(struct table * tbl){
 	hashmap_apply(tbl->map, matcherlist_head_finish, NULL);
 	hashmap_finish(tbl->map);
 	FREE(tbl);
+}
+
+bool table_maskequal(void * data1, void * data2, void * aux __attribute__((unused))){
+	return flow_equal((struct flow *) data1, &((struct table *) data2)->mask);
 }
 
 bool table_add(struct table * tbl, struct flow * f, void * data){

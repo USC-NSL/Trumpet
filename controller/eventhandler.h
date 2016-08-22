@@ -11,6 +11,7 @@
 #define MAX_SERVERS 4
 #define MAX_EVENTHISTORY 4
 #define EPOCH_NS 10000000
+#define EVENT_NOFG 0x00000000
 
 
 struct serverdata;
@@ -63,6 +64,7 @@ struct event{
 	struct eventhistory * eventhistory_head; // a link list of the event occurances
 	struct trigger triggers [MAX_SERVERS]; //keep a trigger position for each server. it is filled if the server ponter is not null. A simple & fast implementation just as a prototype, it could be a hashmap in production
 	pthread_rwlock_t lock; // The lock is used for accessing the eventhistory linked list
+	uint32_t flowgranularity; //6 bits srcip, 6 bits dstip, 5 srcport, 5 dstport, 4 protocol
 	uint16_t timeinterval;
 	uint8_t type;
 };
@@ -159,5 +161,7 @@ void eventhandler_syncepoch(int ms);
 */
 void event_fill(struct event * e, struct trigger * t, char * buf);
 bool event_print(void * data, void * aux);
+
+uint32_t event_makefg(uint8_t srcip, uint8_t dstip, uint8_t srcport, uint8_t dstport, uint8_t protocol);
 
 #endif /* eventhandler.h */

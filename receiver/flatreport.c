@@ -467,7 +467,7 @@ __attribute__((unused)) void flatreport_makenotmatchingtriggers(struct flatrepor
 			if (t == NULL){
 				t = triggertable_gettrigger(fr->tt);
 			}
-			t = counter_trigger_init(t, 0, triggernumtillnow, &filter, &filtermask, type, 80000000, 1);
+			t = counter_trigger_init(t, 0, &filter, &filtermask, type, 80000000, 1);
 			if (!triggertable_addtrigger(fr->tt, t)){
 				triggernumtillnow++;
 			//	trigger_print2(t, NULL);
@@ -511,7 +511,7 @@ __attribute__((unused)) void flatreport_makeallpatternsmatchingtriggers(struct f
 			if (t == NULL){
 				t = triggertable_gettrigger(fr->tt);
 			}
-			t = counter_trigger_init(t, 0, triggernumtillnow, &filter, &filtermask, type, 80000000, 1);
+			t = counter_trigger_init(t, 0, &filter, &filtermask, type, 80000000, 1);
 			if (!triggertable_addtrigger(fr->tt, t)){
 				triggernumtillnow++;
 			//	trigger_print2(t, NULL);
@@ -556,7 +556,7 @@ __attribute__((unused)) void flatreport_makeperpktmatchingtriggers(struct flatre
 
 			for (i = 0; i < triggerperpkt; i++){
 				t = triggertable_gettrigger(fr->tt);
-				t = counter_trigger_init(t, 0, triggernumtillnow, &filter, &filtermask, type, 80000000, 1);
+				t = counter_trigger_init(t, 0, &filter, &filtermask, type, 80000000, 1);
 				triggertable_addtrigger(fr->tt, t);
 				triggernumtillnow++;
 //				trigger_print2(t, NULL);
@@ -603,7 +603,7 @@ __attribute__((unused)) void flatreport_makeperpktpatterntriggers(struct flatrep
 			filter.ports = ports & mask2;
 
 			t = triggertable_gettrigger(fr->tt);
-			t = counter_trigger_init(t, 0, triggernumtillnow, &filter, &filtermask, type, 80000000, 1);
+			t = counter_trigger_init(t, 0, &filter, &filtermask, type, 80000000, 1);
 			triggertable_addtrigger(fr->tt, t);
 			triggernumtillnow++;
 //			trigger_print2(t, NULL);
@@ -643,7 +643,7 @@ uint32_t triggernum, struct triggertype * type){
 		if (t == NULL){
 			t = triggertable_gettrigger(fr->tt);
 		}
-		t = counter_trigger_init(t, 0, triggernumtillnow, &filter, &filtermask, type, 80000000, 1);
+		t = counter_trigger_init(t, 0, &filter, &filtermask, type, 80000000, 1);
 		if (!triggertable_addtrigger(fr->tt, t)){
 			triggernumtillnow++;
 //			trigger_print2(t, NULL);
@@ -850,7 +850,7 @@ void flatreport_addtriggers(struct flatreport * fr, uint16_t trigger_num, uint16
                         filter.ports = (htons((ports & mask2)>>16)<<16) | htons((ports&mask2) &0xffff);
 
                         t = triggertable_gettrigger(fr->tt);
-                        t = counter_trigger_init(t,0, j*trigger_perpkt + i, &filter, &filtermask, type, 80000000, 1);
+                        t = counter_trigger_init(t, 0, &filter, &filtermask, type, 80000000, 1);
                         triggertable_addtrigger(fr->tt, t);
 		//	trigger_print2(t, NULL);
 
@@ -897,7 +897,7 @@ void flatreport_addtriggers(struct flatreport * fr, uint16_t trigger_num, uint16
 				filter.ports = htons(2500)<<16 & filtermask.ports;
 				
 				struct trigger * t = triggertable_gettrigger(fr->tt);
-				t = counter_trigger_init(t,id++, &filter, &filtermask, type, 80000000, 1);
+				t = counter_trigger_init(t, &filter, &filtermask, type, 80000000, 1);
 			//	trigger_print2(t, NULL);
 				triggertable_addtrigger(fr->tt, t);
 			}

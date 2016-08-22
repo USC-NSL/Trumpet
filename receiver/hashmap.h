@@ -22,6 +22,7 @@ typedef struct {
 typedef uint32_t (*hashmap_hash_func)(void * data);
 //data1 is your input, data2 will be whatever in map
 typedef bool (*hashmap_equal_func)(void * data1, void * data2, void * aux);
+//return false if you remove the object from the hashmap
 typedef bool (*hashmap_apply_func)(void * data, void * aux);
 typedef int (*hashmap_comparison_func)(void * data1, void * data2);
 typedef void (*hashmap_init_func)(void * newdata, void * data, void * aux);

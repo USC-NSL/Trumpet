@@ -254,7 +254,7 @@ void addtrigger(struct client * c, struct message_addtrigger * m2){
 	}else{
 		t = triggertable_gettrigger(c->fr->tt);
 		uint32_t threshold = *((uint32_t *)((intptr_t)m2->buf + 1));
-        	t = counter_trigger_init(t, m2->eventid, m2->eventid*100, &m2->f, &m2->mask, type, threshold, m2->timeinterval/c->reportinterval);
+        	t = counter_trigger_init(t, m2->eventid, &m2->f, &m2->mask, type, threshold, m2->timeinterval/c->reportinterval);
 	        triggertable_addtrigger(c->fr->tt, t);
 		trigger_print(t, NULL);
 		flatreport_matchforatrigger(c->fr, t);

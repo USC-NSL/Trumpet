@@ -66,6 +66,7 @@ struct triggertable{
 	struct triggerflowlistpool * pools;
 	uint16_t violated_entry_index; // for reporting when strawman goes over flow table entries
 	uint16_t filled; //number of added triggers
+	uint16_t lastid;
 	void * triggers_temp[FLOWENTRY_TRIGGER_SIZE]; //used for strawman that sweeps over flow table entries
 };
 
@@ -204,7 +205,7 @@ void trigger_cleantfl(struct trigger * t, struct triggertable * tt);
 */
 bool trigger_match(struct trigger * t, struct flow * f, struct flow * tempflow);
 
-struct trigger * counter_trigger_init(struct trigger * t, uint16_t eventid, uint16_t id, struct flow * filter, struct flow * mask, struct triggertype * type, uint32_t threshold, uint16_t timeinterval);
+struct trigger * counter_trigger_init(struct trigger * t, uint16_t eventid, struct flow * filter, struct flow * mask, struct triggertype * type, uint32_t threshold, uint16_t timeinterval);
 bool counter_trigger_report(struct trigger * t, uint32_t stepsback, char * buf);
 
 void counter_trigger_free(struct trigger * t, void * aux);
@@ -220,5 +221,10 @@ void congestion_trigger_update(struct trigger * t, void * data __attribute__((un
 //void congestion_trigger_reset(struct trigger * t, void * aux __attribute__((unused)));
 void burst_trigger_update(struct trigger * t, void * d, struct triggertable * tt);
 void burstloss_trigger_update(struct trigger * t, void * d, struct triggertable * tt);
+
+struct trigger * fgcounter_trigger_init(struct trigger * t, uint16_t eventid, struct flow * filter, struct flow * mask, struct triggertype * type, uint32_t flowgranularity, struct triggertype * triggertype, uint32_t threshold, uint16_t timeinterval);
+void fgcounter_trigger_reset(struct trigger * t, void * aux);
+void fgcounter_trigger_print(struct trigger * t, void * aux);
+bool fgcounter_trigger_condition(struct trigger * t);
 
 #endif /* triggertable2.h */

@@ -530,3 +530,8 @@ void event_fill(struct event * e __attribute__((unused)), struct trigger * t, ch
 	buf++;
 	*(uint32_t *)buf = t->threshold;
 }
+
+
+uint32_t event_makefg(uint8_t srcip, uint8_t dstip, uint8_t srcport, uint8_t dstport, uint8_t protocol){
+	return (((((((srcip<<6)|dstip)<<6)|srcport)<<6)|dstport)<<6)|protocol;
+}

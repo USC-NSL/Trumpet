@@ -3,7 +3,7 @@
 #include <inttypes.h>
 #include "flow.h"
 
-#define MESSAGE_BUFSIZE 8
+#define MESSAGE_BUFSIZE 8 //make sure the maxsize is correct
 #define MESSAGE_MAXSIZE 64
 
 enum messagetype{
@@ -32,9 +32,9 @@ struct message_addtrigger{
         struct flow f;
         struct flow mask;
         uint32_t eventid;
+	uint32_t flowgranularity;
 	uint16_t timeinterval;
         char buf[MESSAGE_BUFSIZE];
-        //uint32_t type_id;
 };
 
 struct message_deltrigger{
@@ -56,6 +56,7 @@ struct message_addtrigger_return{
 };
 
 struct message_triggersatisfaction{
+	struct flow f;
         uint32_t time;
         uint16_t eventid;
         uint16_t code;

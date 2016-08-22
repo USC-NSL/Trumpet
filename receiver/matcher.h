@@ -8,6 +8,7 @@
 */
 struct table {
 	struct flow mask;
+	hashmap_elem e;
 	struct table * next;
 	struct hashmap * map;
 };
@@ -15,6 +16,7 @@ struct table {
 
 struct matcher {
 	struct table * tables;
+	struct hashmap * masktable;
 };
 
 typedef bool (*matcher_dataequal_func)(void * data1, void * data2);

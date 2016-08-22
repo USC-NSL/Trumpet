@@ -67,6 +67,7 @@ void usecase_netwide_addevent(struct eventhandler * eh, struct dc_param * events
                 e->mask.ports = (ntohs(e->mask.ports>>16)<<16)|ntohs(e->mask.ports & 0xffff);
                 e->threshold = 8; //small threshold to always report
                 e->type = 0; //trigger types are installed beforehand at the recevier. type 0 is packet count
+		e->flowgranularity = EVENT_NOFG;
 
                 //find servers & install
                 uint16_t servers_num = eventhandler_getserversforevent(eh, e, servers);
@@ -133,7 +134,6 @@ static void addlossevent(struct eventhandler * eh, __attribute__((unused))struct
 			e->f.srcip = ntohl(e->mask.srcip &((((((192<<8)+168)<<8)+1)<<8)+1));
 			e->f.dstip = ntohl(e->mask.dstip & ((((((192<<8)+168)<<8)+1)<<8)+3));
 			e->f.ports = (ntohs((e->mask.ports>>16) & 58513)<<16) | ntohs((e->mask.ports & 0xffff) & 2500);
-			e->f.protocol = IPPROTO_TCP; //TCP
 		}else{
 			e->mask.srcip = 0xffffffff;
 			e->mask.dstip = 0x00000000;
@@ -142,8 +142,10 @@ static void addlossevent(struct eventhandler * eh, __attribute__((unused))struct
 			e->f.srcip = ntohl(e->mask.srcip & ((((((192<<8)+168)<<8)+1)<<8)+3));
 			e->f.dstip = ntohl(e->mask.dstip &((((((192<<8)+168)<<8)+1)<<8)+1));
 			e->f.ports = (ntohs((e->mask.ports>>16) & 2500)<<16) | ntohs((e->mask.ports & 0xffff) & 58513);
-			e->f.protocol = IPPROTO_TCP; //TCP
 		}
+
+		e->flowgranularity = EVENT_NOFG;
+		e->f.protocol = IPPROTO_TCP; //TCP
 
 		e->mask.srcip = ntohl(e->mask.srcip);
 		e->mask.dstip = ntohl(e->mask.dstip);
@@ -227,6 +229,7 @@ void lossaction(struct usecase_congestion * u2, uint32_t removedelay){
        e->threshold = 10000;
        e->timeinterval = 10;
        e->type = 1;
+       e->flowgranularity = EVENT_NOFG;
 
        //at third server
        index = server->id;
@@ -467,6 +470,7 @@ static struct event * usecase_file_readline(struct usecase_file * u2, char * lin
 	}else{
 		e->type = 0;
 	}
+	e->flowgranularity = event_makefg(fg_srcip_len, fg_dstip_len, fg_srcport_len, fg_dstport_len, fg_protocol_len);
 
  	return e;
 }

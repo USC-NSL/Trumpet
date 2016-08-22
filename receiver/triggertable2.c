@@ -9,6 +9,7 @@
 #include "summary.h"
 
 #define TRIGGERTABLE_FLOWLIST_POOLSIZE  (1<<21)
+#define TRIGGERTABLE_TYPE_FGID 0xFF
 
 #if TRIGGERTABLE_INLINE_TRIGGER
 #define getTrigger(p,i) p + i;
@@ -28,7 +29,7 @@ void trigger_finish2(struct trigger * data, void * aux);
 struct table * triggertable_findtable(struct triggertable * tt, struct trigger * t);
 bool triggertype_equal(struct triggertype * type1, struct triggertype * type2);
 void triggertype_print(struct triggertype * type);
-void trigger_init(uint16_t id, uint16_t eventid,  struct trigger * t, struct flow * filter, struct flow * mask, struct triggertype * type);
+void trigger_init(uint16_t eventid,  struct trigger * t, struct flow * filter, struct flow * mask, struct triggertype * type);
 void counter_trigger_update(struct trigger * t, uint32_t value, struct triggertable * tt);
 void burstloss_check(uint32_t seq, void * aux);
 void triggertable_finishsweep(struct triggertable * tt);
@@ -36,6 +37,10 @@ uint16_t readtfl(struct triggertable * tt, struct trigger * t);
 void updatetickspertype(struct triggertable * tt, uint32_t sweeptime, uint32_t totalflow);
 void triggertable_newtriggerflowlistpool(struct triggertable * tt);
 struct triggerflowlist * getnewflowlist(struct triggertable * tt);
+
+bool trigger_isfgmaster(struct trigger * t);
+struct flow * trigger_fgmask(struct trigger * t);
+struct trigger * trigger_fginit(struct trigger * t, struct trigger * t2, struct flow * f);
 
 struct triggertable * triggertable_init(struct flatreport * fr){
 	x=0;
@@ -69,7 +74,7 @@ struct triggertable * triggertable_init(struct flatreport * fr){
 	}
 #endif
 
-
+	tt->lastid = 0;
 	return tt;
 }
 
@@ -172,6 +177,7 @@ struct trigger * triggertable_gettrigger(struct triggertable * tt){
 		t->pos = (uint16_t) id;
 		bitmap_unset(tt->trigger_pos_bm, id);
 		tt->filled++;
+		t->id = tt->lastid++;
 		return t;
 	}else{
 		fprintf(stderr, "triggertable: no more space to add a trigger\n");
@@ -455,24 +461,51 @@ inline static void maketflforatrigger(struct triggertable * tt, struct trigger *
 		t->tfhead_filled = 0;*/
 }
 
-inline static struct triggerflow * addflowtotrigger(struct trigger * t, struct flowentry * fe){
-	struct triggerflow * tf;
+inline static void addflowtotrigger(struct trigger * t, struct flowentry * fe){
 	t->matched++;
+	struct triggerflow * tf;
 	fe->summaries |= t->type->summarymask;
 	tf = t->tfl->tf + t->tfhead_filled;
 	t->tfl->fullmap |= ((uint64_t)1) << t->tfhead_filled;
 	flow_fill(&tf->f, &fe->f);
 //	tf->fe = fe;
 //	tf->hash = hash;
-	t->tfhead_filled++; 
-	return tf;
+	t->tfhead_filled++;
+}
+
+inline static void addflowtofgtrigger(struct triggertable * tt, struct trigger * t, struct flowentry * fe){
+	//find trigger with similar event id
+	t->matched++;
+	uint16_t size = FLOWENTRY_TRIGGER_SIZE;
+	struct trigger * t2;
+	uint16_t i;
+	matcher_matchmask(tt->m, &fe->f, trigger_fgmask(t), tt->triggers_temp, &size);
+	bool found = false;
+	for (i = 0; i < size; i++){
+		t2 = (struct trigger *) tt->triggers_temp[i];
+		if (t2->eventid == t->eventid){
+			found = true;
+			break;
+		}
+	}
+	//if not found add it and add the flow to it	
+	if (!found){
+		struct trigger * t2 = triggertable_gettrigger(tt);
+               	t2 = trigger_fginit(t, t2, &fe->f);
+               	triggertable_addtrigger(tt, t2);
+		addflowtotrigger(t2, fe);
+	}
 }
 
 void triggertable_singletriggermatch(struct triggertable * tt, struct trigger * t, struct flowentry * fe, struct summary_table * st){
 	if (t->tfl == NULL || t->tfhead_filled == TRIGGERFLOW_BATCH){
 		maketflforatrigger(tt, t);
 	}
-	addflowtotrigger(t, fe);
+	if (trigger_isfgmaster(t)){
+		addflowtofgtrigger(tt, t, fe);
+	}else{
+		addflowtotrigger(t, fe);
+	}
 	summary_updatesummaries(st, fe);
 	//FIXME: MESSES UP CURRENT SUMMARIES
 }
@@ -482,7 +515,6 @@ void triggertable_sweepmatch(struct triggertable * tt, struct flowentry * fe, st
 	uint16_t size = FLOWENTRY_TRIGGER_SIZE;
 	struct trigger * t;
 	uint16_t i;
-	struct triggerflow *tf;
 	matcher_match(tt->m, &fe->f, tt->triggers_temp, &size);
 //	flow_print(&fe->f);
 //	printf("%d\n", size);
@@ -501,8 +533,13 @@ void triggertable_sweepmatch(struct triggertable * tt, struct flowentry * fe, st
 
 	for (i = 0; i < size; i++){
 		t = (struct trigger *) tt->triggers_temp[i];
-		tf = addflowtotrigger(t, fe);
-		rte_prefetch2(tf+1);
+		
+		if (trigger_isfgmaster(t)){
+			addflowtofgtrigger(tt, t, fe);
+		}else{
+			addflowtotrigger(t, fe);
+		}
+		rte_prefetch2(t->tfl->tf + t->tfhead_filled);
 	}
 
 //	testfunc(tt, fe, hash, size);
@@ -780,11 +817,10 @@ void triggertype_print(struct triggertype * type){
 
 ///////////////////////////////// TRIGGER /////////////////////////
 
-void trigger_init(uint16_t id, uint16_t eventid, struct trigger * t, struct flow * filter, struct flow * mask, struct triggertype * type){
+void trigger_init(uint16_t eventid, struct trigger * t, struct flow * filter, struct flow * mask, struct triggertype * type){
 	flow_mask(&t->filter, filter, mask);
 	if (flow_equal(filter, &t->filter)){
 		t->eventid = eventid;
-		t->id = id;
 		//flow_fill(&t->filter, filter);
 		flow_fill(&t->mask, mask);
 		//t->reported = false;
@@ -908,8 +944,8 @@ inline uint32_t counter_trigger_getvalue(struct trigger * t){
 }
 
 
-struct trigger * counter_trigger_init(struct trigger * t, uint16_t eventid, uint16_t id, struct flow * filter, struct flow * mask, struct triggertype * type, uint32_t threshold, uint16_t timeinterval){
-	trigger_init(id, eventid, t, filter, mask, type);
+struct trigger * counter_trigger_init(struct trigger * t, uint16_t eventid, struct flow * filter, struct flow * mask, struct triggertype * type, uint32_t threshold, uint16_t timeinterval){
+	trigger_init(eventid, t, filter, mask, type);
 	counter_trigger_setthreshold(t, threshold);
 	t->historyindex = 4; //reserve 4 for threshold;
 	counter_trigger_setvalue(t, 0);
@@ -1076,4 +1112,81 @@ void burstloss_trigger_update(struct trigger * t, void * data, struct triggertab
 
 	// now check if it is violating the threshold
 //	return counter_trigger_getvalue(t) >= counter_trigger_getthreshold(t);
+}
+
+/* --------------------------------- FG master --------------------------*/
+
+inline bool trigger_isfgmaster(struct trigger * t){
+	return t->type->id == TRIGGERTABLE_TYPE_FGID; 	
+}
+
+struct trigger * fgcounter_trigger_init(struct trigger * t, uint16_t eventid, struct flow * filter, struct flow * mask, struct triggertype * type, uint32_t flowgranularity, struct triggertype * triggertype, uint32_t threshold, uint16_t timeinterval){
+        trigger_init(eventid, t, filter, mask, type);
+        counter_trigger_setthreshold(t, threshold);
+        t->historyindex = 4; //reserve 4 for threshold;
+        t->reset_interval = timeinterval;
+        if (t->reset_interval == 0 ){
+                t->reset_interval = 1;
+        }
+	
+	*(struct triggertype **)((uintptr_t)t->buf + t->historyindex) = triggertype;
+	t->historyindex += sizeof(struct triggertype *);
+
+	uint8_t protocol_len = flowgranularity & 0x3f;
+	if (protocol_len > 8){
+		protocol_len = 8;
+	}
+	flowgranularity >>= 6;
+	uint8_t dstport_len = flowgranularity & 0x3f;
+	if (dstport_len > 16){
+		dstport_len = 16;
+	}
+	flowgranularity >>= 6;
+	uint8_t srcport_len = flowgranularity & 0x3f;
+	if (srcport_len > 16){
+		srcport_len = 16;
+	}
+	flowgranularity >>= 6;
+	uint8_t dstip_len = flowgranularity & 0x3f;
+	if (dstip_len > 32){
+		dstip_len = 32;
+	}
+	flowgranularity >>= 6;
+	uint8_t srcip_len = flowgranularity & 0x3f;
+	if (srcip_len > 32){
+		srcip_len = 32;
+	}
+	
+	struct flow * f =  (struct flow *)((uintptr_t)t->buf + t->historyindex);
+	f->srcip = mask->srcip | (0x00ffffffffUL << srcip_len);
+	f->dstip = mask->dstip | (0x00ffffffffUL << dstip_len);
+	f->ports = mask->ports | (((0x00000000ffffUL << (32-srcport_len))&0xffff0000) | ((0x0000ffff << (16-dstport_len)) & 0x0000ffff));
+        f->protocol = mask->protocol | ((0x000000ff <<(8-protocol_len)) & 0x000000ff);
+
+	
+        return t;
+}
+
+inline struct flow * trigger_fgmask(struct trigger * t){
+	return (struct flow *)((uintptr_t)t->buf + t->historyindex);	
+}
+
+
+void fgcounter_trigger_reset(struct trigger * t __attribute__((unused)), void * aux __attribute__((unused))){
+}
+
+void fgcounter_trigger_print(struct trigger * t, void * aux){
+	flow_inlineprint2(trigger_fgmask(t), (char *) aux);
+	sprintf((char *) aux, " threshold %"PRIu32"\n", counter_trigger_getthreshold(t));
+}
+
+bool fgcounter_trigger_condition(struct trigger * t __attribute__((unused))){
+	return false;
+}
+
+struct trigger * trigger_fginit(struct trigger * t, struct trigger * t2, struct flow * f){
+	struct flow f2;
+	flow_mask(&f2, f, trigger_fgmask(t));
+	t2 = counter_trigger_init(t2, t->eventid, &f2, trigger_fgmask(t), *(struct triggertype **)((uintptr_t)t->buf + t->historyindex), counter_trigger_getthreshold(t), t->reset_interval);
+	return t2;
 }
