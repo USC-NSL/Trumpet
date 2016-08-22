@@ -12,22 +12,28 @@
 #include "usecase.h"
 
 
+void * delaycommand_thread (void *_);
 int event_checkcondition(struct eventhandler * eh, struct event * e, struct eventhistory * es);
-int findtrigger(struct eventhandler * eh, uint16_t eventid, struct serverdata * server, struct event ** e, struct trigger **t);
+struct event * event_init(struct event * e);
 uint32_t event_hash(void * data);
 bool event_equal(void * data1, void * data2, void * aux);
 bool event_finish(void * data, void * aux);
 struct event * event_init(struct event * e);
 bool event_equalid(void * data1, void * data2, void * aux);
-void eventhistory_finish(struct eventhistory * es);
 void resetevents(struct eventhandler * eh);
-bool eventhistory_triggerhistory_init(void * data, void * aux);
-bool findeventhistory(struct event * e, uint32_t time, struct eventhistory ** es2);
-void getaneventhistory(struct event * e, struct trigger * t2, struct eventhistory **es2, uint32_t time);
-void * delaycommand_thread (void *_);
 
-void eventhandler_addlossevent(struct eventhandler * eh, struct dc_param * param);
-struct event * event_init(struct event * e);
+int findtrigger(struct eventhandler * eh, uint16_t eventid, struct serverdata * server, struct event ** e, struct trigger **t);
+
+void eventhistory_finish(struct eventhistory * es);
+bool eventhistory_triggerhistory_init(void * data, void * aux);
+struct eventhistory * findeventhistory(struct event * e, uint32_t time, struct flow * f, uint32_t hash, struct eventhistorychain ** esc);
+void getaneventhistory(struct eventhandler * eh, struct event * e, struct trigger * t2, struct eventhistory **es2, uint32_t time, struct flow * f, uint32_t hash);
+bool eventhistorychain_flowequal(void * newdata, void * data, void *aux);
+bool eventhistorychain_isobsolete(struct eventhistorychain * esc, struct eventhandler * eh);
+bool eventhistorychain_replace(void * newdata, void * data, void * aux);
+void eventhistorychain_flowinit(void * newdata, void * data, void * aux);
+bool eventhistorychain_finish(void * data, void * aux);
+
 
 struct delayedcommand * delayedcommand_init(uint64_t timeus){
 	struct delayedcommand * dc = MALLOC(sizeof (struct delayedcommand));
@@ -321,41 +327,49 @@ uint32_t eventhandler_gettime(struct eventhandler * eh){
 /*
 * find an event history with specific time for an event
 */ 
-bool findeventhistory(struct event * e, uint32_t time, struct eventhistory ** es2){
+struct eventhistory * findeventhistory(struct event * e, uint32_t time, struct flow * f, uint32_t hash, struct eventhistorychain ** esc){
+	*esc = (struct eventhistorychain *) hashmap_get2(e->eventhistory_map, f, hash, eventhistorychain_flowequal, NULL);
+	if (*esc == NULL) {
+		return NULL;
+	}
+	
 	struct eventhistory * es;
-	for (es = e->eventhistory_head; es != NULL; es = es->next){
-		if (es->valid && es->time == time){
-			*es2 = es;
-			return true;
+	//Assuming descinding time in a chain
+	for (es = &(*esc)->es; es != NULL && es->time >= time; es = es->next){
+		if (es->time == time){
+			return es;
 		}
 	}
-	*es2 = NULL;
-	return false;
+	return NULL;
 }
 
-void getaneventhistory(struct event * e, struct trigger * t2, struct eventhistory **es2, uint32_t time){
+void getaneventhistory(struct eventhandler * eh, struct event * e, struct trigger * t2, struct eventhistory **es2, uint32_t time, struct flow * f, uint32_t hash){
 	struct eventhistory * es;
+	struct eventhistorychain * esc;
 	pthread_rwlock_unlock(&e->lock);
 	pthread_rwlock_wrlock(&e->lock);
-	if (!findeventhistory(e, time, &es)){ //check again as before getting the lock somebody else could have added that!
-		//I already know it is a satisfaction because the event history is not there so it cannot be the reply of a poll
-		if (e->eventhistory_head != NULL && !e->eventhistory_head->valid){ //most of the time only one history per event is there. so lets keep the first one always there, but its valid flag could be false
-			es = e->eventhistory_head;
-//			printf("event %d time %d thread %d use %p\n", e->id, time, (int) pthread_self(), es);
-		}else{
+	es = findeventhistory(e, time, f, hash, &esc);
+	if (es == NULL){ //check again as before getting the lock somebody else could have added that!
+		if (esc == NULL){
+			esc = (struct eventhistorychain *) hashmap_add2(e->eventhistory_map, f, hash, eventhistorychain_flowequal, eventhistorychain_flowinit, eh);
+			esc->e = e;
+			es = &esc->es;
+			es->prev = NULL;
+			es->next = NULL;
+		}else{//find the right place to insert A VERY ODD CASE
+			struct eventhistory * es2;
+			for (es2 = &esc->es; es2->next != NULL && es2->time >= time; es2 = es2->next);
 			es = malloc(sizeof (struct eventhistory));
 //			printf("event %d time %d thread %d malloc %p\n", e->id, time, (int) pthread_self(), es);
-			es->next = e->eventhistory_head; //stack it
-			e->eventhistory_head = es;
-			es->prev = NULL;
-			if (es->next != NULL){
-				es->next->prev = es;
+			es->next = es2->next;
+			es->prev = es2;
+			if (es2->next != NULL){
+				es2->next->prev = es;
 			}
+			es2->next = es;
 		}
 		es->inittrigger = t2;
 		es->time = time;	
-		es->valid = true;
-		es->e = e;
 		uint16_t i;
 		for (i = 0; i < MAX_SERVERS; i++){
 			struct trigger * t = &e->triggers[i];
@@ -364,7 +378,7 @@ void getaneventhistory(struct event * e, struct trigger * t2, struct eventhistor
 				th->value = 0;
 				if (!serverdata_equal(t->server, es->inittrigger->server)){
 					th->valuereceived = false;
-					serverdata_triggerquery(t->server, es->e, serverdata_c2stime(t->server, es->time));
+					serverdata_triggerquery(t->server, e, serverdata_c2stime(t->server, es->time), f);
 				}
 			}
 		}
@@ -378,11 +392,11 @@ void getaneventhistory(struct event * e, struct trigger * t2, struct eventhistor
 /*
 * processes an event occurance on a client, it could be by poll/query or just the client sends it
 */
-void eventhandler_notify(struct eventhandler * eh, uint16_t eventid, struct serverdata * server, uint32_t time, char * buf, bool satisfaction_or_query, uint16_t code){
+void eventhandler_notify(struct eventhandler * eh, uint16_t eventid, struct serverdata * server, uint32_t time, char * buf, bool satisfaction_or_query, uint16_t code, struct flow * f){
 	time = serverdata_s2ctime(server, time);
 	struct trigger * t;
 	struct event * e;
-	int ret = findtrigger(eh, eventid, server, &e, &t);
+	int ret = findtrigger(eh, eventid, server, &e, &t); //find trigger based on the reporting server
 	if (ret < 0){
 		return;
 	}
@@ -392,10 +406,12 @@ void eventhandler_notify(struct eventhandler * eh, uint16_t eventid, struct serv
 	}
 	pthread_rwlock_rdlock(&e->lock);
 	//pthread_rwlock_wrlock(&e->lock); // JUST FOR TEST
-	struct eventhistory * es;
-	if (!findeventhistory(e, time, &es)){	
+	uint32_t hash = flow_hash(f);
+	struct eventhistorychain * esc;
+	struct eventhistory * es = findeventhistory(e, time, f, hash, &esc);
+	if (es == NULL){	
 		if (satisfaction_or_query){
-			getaneventhistory(e, t, &es, time); //make one
+			getaneventhistory(eh, e, t, &es, time, f, hash); //make one
 		}else{
 			pthread_rwlock_unlock(&e->lock);
 			return;
@@ -410,22 +426,24 @@ void eventhandler_notify(struct eventhandler * eh, uint16_t eventid, struct serv
 	if (check >= 0){ //if we received all expected replies for this eventhistory
 		//I'm done with this eventhistory
 		pthread_rwlock_wrlock(&e->lock);
-		//make sure es is not freed!
+		//make sure es is not freed by somebody else!
 		//check if it is still in the list! because another thread just before getting the lock may have removed it.
-		if (findeventhistory(e, time, &es)){
-			if (e->eventhistory_head == es && es->next == NULL){
-				//don't remove it as a performance optimization
-				es->valid = false;
-//				printf("event %d time %d thread %d notuse %p\n", es->e->id, es->time, (int) pthread_self(), es);
-			}else{
-				if (es->prev != NULL){
-					es->prev->next = es->next;
-				}else{
-					e->eventhistory_head = es->next;
+		es = findeventhistory(e, time, f, hash, &esc); 
+		if (es != NULL){
+			if (es->prev == NULL){
+				if (es->next == NULL){
+					hashmap_remove(e->eventhistory_map, es);
+				}else{//copy its data 
+					struct eventhistory * esnext = es->next;
+					memcpy(es, esnext, sizeof (struct eventhistory));
+					es->prev = NULL;
+					eventhistory_finish(esnext);
 				}
+			}else{
 				if (es->next != NULL){
 					es->next->prev = es->prev;
 				}
+				es->prev->next = es->next;
 				eventhistory_finish(es);
 			}
 		}
@@ -437,7 +455,7 @@ void eventhandler_notify(struct eventhandler * eh, uint16_t eventid, struct serv
 * is called whenever a valid eventhistory is received. 
 * returns -1 if not all eventhistories are received yet.
 */
-int event_checkcondition(struct eventhandler * eh __attribute__((unused)), struct event * e, struct eventhistory * es){
+int event_checkcondition(struct eventhandler * eh, struct event * e, struct eventhistory * es){
 	//Check if all values are received
 	uint16_t i;
 	for (i = 0; i < MAX_SERVERS; i++){
@@ -479,12 +497,54 @@ void eventhistory_finish(struct eventhistory * es){
 	free (es);
 }
 
+bool eventhistorychain_finish(void * data, void * aux __attribute__((unused))){
+	struct eventhistory * es, *es2;
+//	printf("finish event %d\n", e->id);
+	for (es = ((struct eventhistorychain *)data)->es.next; es != NULL; es = es2){ //head doesn't need to be freed
+		es2 = es->next;
+		eventhistory_finish(es);
+	}
+	return true;
+}
+
+bool eventhistorychain_isobsolete(struct eventhistorychain * esc, struct eventhandler * eh){
+	//only keep last 10 epochs
+	//assumes that head of chain has max time
+	return eventhandler_gettime(eh)-esc->es.time < 10;
+}
+
+bool eventhistorychain_replace(void * newdata, void * data, void * aux){
+	struct eventhistorychain * esc = (struct eventhistorychain *) data;
+	struct eventhandler * eh = (struct eventhandler *) aux;
+	if (eventhistorychain_isobsolete(esc, eh)){
+		eventhistorychain_finish(data, aux);
+		eventhistorychain_flowinit(newdata, data, aux);	
+		return true;
+	}
+	return false;
+}
+
+void eventhistorychain_flowinit(void * newdata, void * data, void * aux __attribute__((unused))){
+	struct flow *f = (struct flow *) newdata;
+	struct eventhistorychain * esc = (struct eventhistorychain *) data;
+	flow_fill(&esc->f, f);
+}
+
+bool eventhistorychain_flowequal(void * newdata, void * data, void *aux __attribute__((unused))){
+	struct flow *f = (struct flow *) newdata;
+	struct eventhistorychain * esc = (struct eventhistorychain *) data;
+	return flow_equal(f, &esc->f);
+}
+
 struct event * event_init(struct event * e){
 	pthread_rwlock_init(&e->lock, NULL);
 	pthread_rwlock_wrlock(&e->lock);
-		
-	e->eventhistory_head = malloc(sizeof(struct eventhistory));
-	e->eventhistory_head->valid = false;
+
+	uint16_t entry_size = entry_size_64(sizeof(struct eventhistorychain));
+	e->eventhistory_map = hashmap_init(1<<10, 1<<10, entry_size, offsetof(struct eventhistorychain, elem), eventhistorychain_replace);	
+	
+//	e->eventhistory_head = malloc(sizeof(struct eventhistory));
+//	e->eventhistory_head->valid = false;
 	int j;
 	for (j = 0; j < MAX_SERVERS; j++){
 		e->triggers[j].server = NULL;
@@ -500,12 +560,8 @@ struct event * event_init(struct event * e){
 bool event_finish(void * data, void * aux __attribute__((unused))){
 	struct event * e = (struct event *) data;
 	pthread_rwlock_wrlock(&e->lock);
-	struct eventhistory * es, *es2;
-//	printf("finish event %d\n", e->id);
-	for (es = e->eventhistory_head; es != NULL; es = es2){
-		es2 = es->next;
-		eventhistory_finish(es);
-	}
+	hashmap_apply(e->eventhistory_map, eventhistorychain_finish, NULL);
+	hashmap_finish(e->eventhistory_map);
 	pthread_rwlock_unlock(&e->lock);
 	pthread_rwlock_destroy(&e->lock);
 	return true;
@@ -529,9 +585,4 @@ void event_fill(struct event * e __attribute__((unused)), struct trigger * t, ch
 	*buf = e->type; //type
 	buf++;
 	*(uint32_t *)buf = t->threshold;
-}
-
-
-uint32_t event_makefg(uint8_t srcip, uint8_t dstip, uint8_t srcport, uint8_t dstport, uint8_t protocol){
-	return (((((((srcip<<6)|dstip)<<6)|srcport)<<6)|dstport)<<6)|protocol;
 }

@@ -64,6 +64,7 @@ struct triggertable{
 	struct sweep_state state;
 	struct triggertype * types;
 	struct triggerflowlistpool * pools;
+	struct triggertype * fgtype;
 	uint16_t violated_entry_index; // for reporting when strawman goes over flow table entries
 	uint16_t filled; //number of added triggers
 	uint16_t lastid;
@@ -193,6 +194,8 @@ void triggertable_report(struct triggertable * tt);
 bool triggertable_getreport(struct triggertable * tt, struct trigger * t, char * buf, uint32_t time);
 
 
+void triggertable_parseflowgranularity(uint32_t flowgranularity, uint8_t* srcip_len, uint8_t* dstip_len, uint8_t* srcport_len, uint8_t* dstport_len, uint8_t* protocol_len);
+
 struct triggertype * triggertype_init(uint16_t id, trigger_update_func update_func, trigger_report_func report_func, trigger_apply_func	free_func, trigger_apply_func reset_func, trigger_apply_func print_func, struct summary ** s, int summarynum, trigger_condition_func condition_func, uint32_t tickspersweep);
 void triggertype_finish(struct triggertype * type);
 
@@ -226,5 +229,7 @@ struct trigger * fgcounter_trigger_init(struct trigger * t, uint16_t eventid, st
 void fgcounter_trigger_reset(struct trigger * t, void * aux);
 void fgcounter_trigger_print(struct trigger * t, void * aux);
 bool fgcounter_trigger_condition(struct trigger * t);
-
+bool fgcounter_trigger_report(struct trigger * t, uint32_t stepsback, char * buf);
+void fgcounter_trigger_update(struct trigger * t, void * d, struct triggertable * tt);
+	
 #endif /* triggertable2.h */

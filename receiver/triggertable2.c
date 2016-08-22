@@ -75,6 +75,8 @@ struct triggertable * triggertable_init(struct flatreport * fr){
 #endif
 
 	tt->lastid = 0;
+	tt->fgtype =  triggertype_init(TRIGGERTABLE_TYPE_FGID, fgcounter_trigger_update, fgcounter_trigger_report, counter_trigger_free, fgcounter_trigger_reset, fgcounter_trigger_print, NULL, 0, fgcounter_trigger_condition, 30);
+	triggertable_addtype(tt, tt->fgtype);
 	return tt;
 }
 
@@ -792,7 +794,7 @@ struct triggertype * triggertype_init(uint16_t id, trigger_update_func update_fu
 	type->ticksperupdate = ticksperupdate;
 	type->ticksperupdate2 = 0;;
 	type->ticksperupdate_num = 0;
-	type->s = MALLOC(sizeof (struct summary *)*summarynum);
+	type->s = summarynum > 0 ? MALLOC(sizeof (struct summary *)*summarynum): NULL;
 	type->summarymask = 0;
 	int i;
 	for (i = 0; i < summarynum; i++){
@@ -803,7 +805,7 @@ struct triggertype * triggertype_init(uint16_t id, trigger_update_func update_fu
 }
 
 void triggertype_finish(struct triggertype * type){
-	FREE (type->s);
+	if (type->s != NULL ) FREE (type->s);
 	FREE (type);
 }
 
@@ -1132,37 +1134,16 @@ struct trigger * fgcounter_trigger_init(struct trigger * t, uint16_t eventid, st
 	*(struct triggertype **)((uintptr_t)t->buf + t->historyindex) = triggertype;
 	t->historyindex += sizeof(struct triggertype *);
 
-	uint8_t protocol_len = flowgranularity & 0x3f;
-	if (protocol_len > 8){
-		protocol_len = 8;
-	}
-	flowgranularity >>= 6;
-	uint8_t dstport_len = flowgranularity & 0x3f;
-	if (dstport_len > 16){
-		dstport_len = 16;
-	}
-	flowgranularity >>= 6;
-	uint8_t srcport_len = flowgranularity & 0x3f;
-	if (srcport_len > 16){
-		srcport_len = 16;
-	}
-	flowgranularity >>= 6;
-	uint8_t dstip_len = flowgranularity & 0x3f;
-	if (dstip_len > 32){
-		dstip_len = 32;
-	}
-	flowgranularity >>= 6;
-	uint8_t srcip_len = flowgranularity & 0x3f;
-	if (srcip_len > 32){
-		srcip_len = 32;
-	}
 	
+	uint8_t srcip_len, dstip_len, srcport_len, dstport_len, protocol_len;
+	flow_parseflowgranularity(flowgranularity, &srcip_len, &dstip_len, &srcport_len, &dstport_len, &protocol_len);
+		
 	struct flow * f =  (struct flow *)((uintptr_t)t->buf + t->historyindex);
-	f->srcip = mask->srcip | (0x00ffffffffUL << srcip_len);
-	f->dstip = mask->dstip | (0x00ffffffffUL << dstip_len);
-	f->ports = mask->ports | (((0x00000000ffffUL << (32-srcport_len))&0xffff0000) | ((0x0000ffff << (16-dstport_len)) & 0x0000ffff));
-        f->protocol = mask->protocol | ((0x000000ff <<(8-protocol_len)) & 0x000000ff);
-
+	flow_makemask(f, srcip_len, dstip_len, srcport_len, dstport_len, protocol_len);
+	f->srcip |= mask->srcip;
+	f->dstip |= mask->dstip;
+	f->ports |= mask->ports;
+        f->protocol |= mask->protocol;
 	
         return t;
 }
@@ -1189,4 +1170,11 @@ struct trigger * trigger_fginit(struct trigger * t, struct trigger * t2, struct 
 	flow_mask(&f2, f, trigger_fgmask(t));
 	t2 = counter_trigger_init(t2, t->eventid, &f2, trigger_fgmask(t), *(struct triggertype **)((uintptr_t)t->buf + t->historyindex), counter_trigger_getthreshold(t), t->reset_interval);
 	return t2;
+}
+
+void fgcounter_trigger_update(struct trigger * t __attribute__((unused)), void * d __attribute__((unused)), struct triggertable * tt __attribute__((unused))){
+}
+
+bool fgcounter_trigger_report(struct trigger * t __attribute__((unused)), uint32_t stepsback __attribute__((unused)), char * buf __attribute__((unused))){
+	return true;
 }

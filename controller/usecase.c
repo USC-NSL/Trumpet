@@ -67,7 +67,8 @@ void usecase_netwide_addevent(struct eventhandler * eh, struct dc_param * events
                 e->mask.ports = (ntohs(e->mask.ports>>16)<<16)|ntohs(e->mask.ports & 0xffff);
                 e->threshold = 8; //small threshold to always report
                 e->type = 0; //trigger types are installed beforehand at the recevier. type 0 is packet count
-		e->flowgranularity = EVENT_NOFG;
+		e->flowgranularity = FLOW_NOFG;
+		flow_fill(&e->fgmask, &e->mask);
 
                 //find servers & install
                 uint16_t servers_num = eventhandler_getserversforevent(eh, e, servers);
@@ -144,7 +145,7 @@ static void addlossevent(struct eventhandler * eh, __attribute__((unused))struct
 			e->f.ports = (ntohs((e->mask.ports>>16) & 2500)<<16) | ntohs((e->mask.ports & 0xffff) & 58513);
 		}
 
-		e->flowgranularity = EVENT_NOFG;
+		e->flowgranularity = FLOW_NOFG;
 		e->f.protocol = IPPROTO_TCP; //TCP
 
 		e->mask.srcip = ntohl(e->mask.srcip);
@@ -153,6 +154,7 @@ static void addlossevent(struct eventhandler * eh, __attribute__((unused))struct
 		e->threshold = 100; //TODO
 		e->timeinterval = 10;
 		e->type = 3; //types are added at the receivers before
+		flow_fill(&e->fgmask, &e->mask);
 		//find servers
 		uint16_t servers_num = eventhandler_getserversforevent(eh, e, servers);
 		if (servers_num < 2){
@@ -229,7 +231,8 @@ void lossaction(struct usecase_congestion * u2, uint32_t removedelay){
        e->threshold = 10000;
        e->timeinterval = 10;
        e->type = 1;
-       e->flowgranularity = EVENT_NOFG;
+       e->flowgranularity = FLOW_NOFG;
+       flow_fill(&e->fgmask, &e->mask);
 
        //at third server
        index = server->id;
@@ -450,19 +453,14 @@ static struct event * usecase_file_readline(struct usecase_file * u2, char * lin
 	//create the event
 	struct eventhandler * eh = u2->u.eh;
         struct event * e = eventhandler_getevent(eh);
-        
-	e->mask.srcip = 0xffffffff << (32-srcip_len);
-        e->mask.dstip = 0xffffffff << (32-dstip_len);
-        e->mask.ports = ((0x00000000ffffUL << (32-srcport_len))&0xffff0000) | ((0x0000ffff << (16-dstport_len)) & 0x0000ffff);
-	e->mask.protocol = (0x000000ff <<(8-protocol_len)) & 0x000000ff;
-        e->f.srcip = ntohl(e->mask.srcip & srcip);
-        e->f.dstip = ntohl(e->mask.dstip & dstip);
-        e->f.ports = (ntohs((e->mask.ports>>16) & srcport)<<16) | ntohs((e->mask.ports & 0xffff) & dstport);
-	e->f.protocol = e->mask.protocol & protocol;
+       
+	flow_makemask(&e->mask, srcip_len, dstip_len, srcport_len, dstport_len, protocol_len); 
+        e->f.srcip = ntohl(srcip);
+        e->f.dstip = ntohl(dstip);
+        e->f.ports = (ntohs(srcport)<<16) | ntohs(dstport);
+	e->f.protocol = protocol;
+	flow_mask(&e->f, &e->f, &e->mask);
                 
-	e->mask.srcip = ntohl(e->mask.srcip);
-        e->mask.dstip = ntohl(e->mask.dstip);
-        e->mask.ports = (ntohs(e->mask.ports>>16)<<16)|ntohs(e->mask.ports & 0xffff);
         e->threshold = atoi(predicate_a[1]);
 	e->timeinterval = atoi(ti_a[0]);
 	if (strcmp(predicate_a[0],"volume")==0){
@@ -470,7 +468,16 @@ static struct event * usecase_file_readline(struct usecase_file * u2, char * lin
 	}else{
 		e->type = 0;
 	}
-	e->flowgranularity = event_makefg(fg_srcip_len, fg_dstip_len, fg_srcport_len, fg_dstport_len, fg_protocol_len);
+	e->flowgranularity = flow_makeflowgranularity(fg_srcip_len, fg_dstip_len, fg_srcport_len, fg_dstport_len, fg_protocol_len);
+	if (e->flowgranularity == FLOW_NOFG){
+		flow_fill(&e->fgmask, &e->mask);	
+	}else{
+		flow_makemask(&e->fgmask, fg_srcip_len, fg_dstip_len, fg_srcport_len, fg_dstport_len, fg_protocol_len);
+		e->fgmask.srcip |= e->mask.srcip;
+		e->fgmask.dstip |= e->mask.dstip;
+		e->fgmask.ports |= e->mask.ports;
+		e->fgmask.protocol |= e->mask.protocol;
+	}
 
  	return e;
 }

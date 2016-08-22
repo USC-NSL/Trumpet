@@ -335,12 +335,12 @@ void read_deltrigger_return(struct serverdata * server, struct message_deltrigge
 
 void read_satisfaction(struct serverdata * server, struct message_triggersatisfaction * m){
 	LOG("%"PRIu64": serverdata %d: sat time %d event %d ctime %d\n", rdtscl(), server->id, m->time, m->eventid, serverdata_s2ctime(server, m->time));
-	eventhandler_notify(server->eh, m->eventid, server, m->time, m->buf, true, m->code);
+	eventhandler_notify(server->eh, m->eventid, server, m->time, m->buf, true, m->code, &m->f);
 }
 
 void read_triggerquery_return(struct serverdata * server, struct message_triggersatisfaction * m){
 	LOG("%"PRIu64": serverdata %d: poll_return time %d event %d ctime %d\n", rdtscl(), server->id, m->time, m->eventid, serverdata_s2ctime(server, m->time));	
-	eventhandler_notify(server->eh, m->eventid, server, m->time, m->buf, false, m->code);
+	eventhandler_notify(server->eh, m->eventid, server, m->time, m->buf, false, m->code, &m->f);
 }
 
 
@@ -383,7 +383,7 @@ void serverdata_deltrigger(struct serverdata * server, struct event * e, struct 
 	sendtoserver(server, h);
 }
 
-void serverdata_triggerquery(struct serverdata * server, struct event * e, uint32_t time){
+void serverdata_triggerquery(struct serverdata * server, struct event * e, uint32_t time, struct flow * f){
 	LOG("%"PRIu64": serverdata %d: poll time %d event %d ctime %d\n", rdtscl(), server->id, time, e->id, serverdata_s2ctime(server, time));
 	struct message_triggerquery * m;
 	struct messageheader * h;
@@ -394,8 +394,8 @@ void serverdata_triggerquery(struct serverdata * server, struct event * e, uint3
 	h->length = sizeof(struct message_triggerquery);
 	
 	m->eventid = e->id;
-	flow_fill(&m->f, &e->f);
-	flow_fill(&m->mask, &e->mask);
+	flow_fill(&m->f, f);
+	flow_fill(&m->mask, &e->fgmask);
 	m->time = time;
 	
 	sendtoserver(server, h);

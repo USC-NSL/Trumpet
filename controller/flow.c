@@ -68,3 +68,46 @@ inline void flow_mask(struct flow * dst, struct flow * src, struct flow * maskfl
 	dst->ports = src->ports & maskflow->ports;
 	dst->protocol = src->protocol && maskflow->protocol; */
 }
+
+void flow_parseflowgranularity(uint32_t flowgranularity, uint8_t* srcip_len, uint8_t* dstip_len, uint8_t* srcport_len, uint8_t* dstport_len, uint8_t* protocol_len){
+        *protocol_len = flowgranularity & 0x3f;
+        if (*protocol_len > 8){
+                *protocol_len = 8;
+        }
+        flowgranularity >>= 6;
+        *dstport_len = flowgranularity & 0x3f;
+        if (*dstport_len > 16){
+                *dstport_len = 16;
+        }
+        flowgranularity >>= 6;
+        *srcport_len = flowgranularity & 0x3f;
+        if (*srcport_len > 16){
+                *srcport_len = 16;
+        }
+        flowgranularity >>= 6;
+        *dstip_len = flowgranularity & 0x3f;
+        if (*dstip_len > 32){
+                *dstip_len = 32;
+        }
+        flowgranularity >>= 6;
+        *srcip_len = flowgranularity & 0x3f;
+        if (*srcip_len > 32){
+                *srcip_len = 32;
+        }
+}
+
+
+uint32_t flow_makeflowgranularity(uint8_t srcip_len, uint8_t dstip_len, uint8_t srcport_len, uint8_t dstport_len, uint8_t protocol_len){
+	return (((((((srcip_len<<6) | dstip_len)<<6) | srcport_len)<<6) | dstport_len)<<6) | protocol_len;
+}
+
+void flow_makemask(struct flow * mask, uint8_t srcip_len, uint8_t dstip_len, uint8_t srcport_len, uint8_t dstport_len, uint8_t protocol_len){
+	mask->srcip = 0xffffffff << (32-srcip_len);
+        mask->dstip = 0xffffffff << (32-dstip_len);
+        mask->ports = ((0x00000000ffffUL << (32-srcport_len))&0xffff0000) | ((0x0000ffff << (16-dstport_len)) & 0x0000ffff);
+        mask->protocol = (0x000000ff <<(8-protocol_len)) & 0x000000ff;
+
+	mask->srcip = ntohl(mask->srcip);
+        mask->dstip = ntohl(mask->dstip);
+        mask->ports = (ntohs(mask->ports>>16)<<16)|ntohs(mask->ports & 0xffff);
+}

@@ -11,7 +11,6 @@
 #define MAX_SERVERS 4
 #define MAX_EVENTHISTORY 4
 #define EPOCH_NS 10000000
-#define EVENT_NOFG 0x00000000
 
 
 struct serverdata;
@@ -56,15 +55,17 @@ struct trigger{
 struct eventhistory;
 
 struct event{
+	hashmap_elem elem;
 	struct flow f;
+	struct flow mask;
+	struct flow fgmask;
 	uint32_t id; //unique among events
 	uint32_t threshold;
-	struct flow mask;
-	hashmap_elem elem;
-	struct eventhistory * eventhistory_head; // a link list of the event occurances
+	struct hashmap * eventhistory_map;
+//	struct eventhistory * eventhistory_head; // a link list of the event occurances
 	struct trigger triggers [MAX_SERVERS]; //keep a trigger position for each server. it is filled if the server ponter is not null. A simple & fast implementation just as a prototype, it could be a hashmap in production
 	pthread_rwlock_t lock; // The lock is used for accessing the eventhistory linked list
-	uint32_t flowgranularity; //6 bits srcip, 6 bits dstip, 5 srcport, 5 dstport, 4 protocol
+	uint32_t flowgranularity; //check flow.c
 	uint16_t timeinterval;
 	uint8_t type;
 };
@@ -76,12 +77,17 @@ struct triggerhistory{
 
 struct eventhistory{
 	uint32_t time;
-	bool valid; // if the eventhistory is valid or not. This is for an optimization to not malloc/free to often
-	struct event * e;
 	struct eventhistory * next;
 	struct eventhistory * prev;
 	struct trigger * inittrigger; // which triggeer was the first one that made us create this event history
 	struct triggerhistory triggersmap [MAX_SERVERS]; //a triggerhisotry per server (as a prototype)
+};
+
+struct eventhistorychain{
+	hashmap_elem elem; //only first in the chain should need this (chain is not long anyway)
+	struct flow f;
+	struct event * e;
+	struct eventhistory es;
 };
 
 struct eventhandler{
@@ -96,9 +102,9 @@ struct eventhandler{
 	uint16_t events_num;
 	bool dc_finish; //tell the delaycommand thread to stop
 };
+
 struct delayedcommand * delayedcommand_init(uint64_t timeus);
 void delayedcommand_finish(struct delayedcommand * dc);
-
 
 struct eventhandler * eventhandler_init(struct usecase * u);
 void eventhandler_finish(struct eventhandler * eh);
@@ -118,7 +124,7 @@ void eventhandler_addtrigger_return(struct eventhandler * eh, uint16_t eventid, 
 /*
 * Notify the receipt of a trigger satisfacction or poll reply from a server
 */
-void eventhandler_notify(struct eventhandler * eh, uint16_t eventid, struct serverdata * server, uint32_t time, char * buf, bool satisfaction_or_query, uint16_t code);
+void eventhandler_notify(struct eventhandler * eh, uint16_t eventid, struct serverdata * server, uint32_t time, char * buf, bool satisfaction_or_query, uint16_t code, struct flow * f);
 
 /*
 * Get epoch number
@@ -161,7 +167,5 @@ void eventhandler_syncepoch(int ms);
 */
 void event_fill(struct event * e, struct trigger * t, char * buf);
 bool event_print(void * data, void * aux);
-
-uint32_t event_makefg(uint8_t srcip, uint8_t dstip, uint8_t srcport, uint8_t dstport, uint8_t protocol);
 
 #endif /* eventhandler.h */

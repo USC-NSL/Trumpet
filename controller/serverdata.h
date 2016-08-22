@@ -48,7 +48,7 @@ void serverdata_deltrigger(struct serverdata * server, struct event * e, struct 
 /*
 * Query a server about an event at a specific time
 */
-void serverdata_triggerquery(struct serverdata * server, struct event * e, uint32_t time);
+void serverdata_triggerquery(struct serverdata * server, struct event * e, uint32_t time, struct flow * f);
 
 bool serverdata_equal(struct serverdata * server1, struct serverdata * server2);
 

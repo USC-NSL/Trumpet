@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include "stdbool.h"
 
+#define FLOW_NOFG 0x00000000
+
 struct flow {
     uint32_t srcip;
     uint32_t dstip;
@@ -21,5 +23,8 @@ void flow_inlineprint(struct flow * f);
 void flow_inlineprint2(struct flow * f, char * buf);
 void flow_mask(struct flow * dst, struct flow * src, struct flow * maskflow);
 
+void flow_parseflowgranularity(uint32_t flowgranularity, uint8_t* srcip_len, uint8_t* dstip_len, uint8_t* srcport_len, uint8_t* dstport_len, uint8_t* protocol_len);
+uint32_t flow_makeflowgranularity(uint8_t srcip_len, uint8_t dstip_len, uint8_t srcport_len, uint8_t dstport_len, uint8_t protocol_len);
+void flow_makemask(struct flow * mask, uint8_t srcip_len, uint8_t dstip_len, uint8_t srcport_len, uint8_t dstport_len, uint8_t protocol_len);
 
 #endif /* flow.h */
