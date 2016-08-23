@@ -94,13 +94,15 @@ struct triggertype{
 struct trigger{
 	struct triggertype * type;
 	uint32_t lastreset;//the epoch number when the trigger is reset	
-	uint16_t pos;//index in the table of back-to-back triggers	
-	uint16_t id;
+	uint16_t reset_interval;
+	uint16_t eventid;
 	struct flow filter;	
 	struct flow mask;
 	uint32_t matched;
-	uint16_t eventid;
-	uint16_t reset_interval;
+	uint16_t id;
+#if !TRIGGERTABLE_INLINE_TRIGGER
+	uint16_t pos;//index in the table of back-to-back triggers	
+#endif
 	uint8_t historyindex;//handles the history of aggregated values in the circular buffer of the trigger
 #if TRIGGERTABLE_SWEEP
 	uint8_t tfhead_filled;
@@ -108,7 +110,7 @@ struct trigger{
 	char buf[64] __attribute__((aligned(4)));
 #else
 	bool reported;	
-	char buf[72] __attribute__((aligned(4)));
+	char buf[70] __attribute__((aligned(4)));
 #endif
 };
 

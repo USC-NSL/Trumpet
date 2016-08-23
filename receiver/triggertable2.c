@@ -37,6 +37,7 @@ uint16_t readtfl(struct triggertable * tt, struct trigger * t);
 void updatetickspertype(struct triggertable * tt, uint32_t sweeptime, uint32_t totalflow);
 void triggertable_newtriggerflowlistpool(struct triggertable * tt);
 struct triggerflowlist * getnewflowlist(struct triggertable * tt);
+uint16_t trigger_getpos(struct triggertable * tt, struct trigger *t);
 
 bool trigger_isfgmaster(struct trigger * t);
 struct flow * trigger_fgmask(struct trigger * t);
@@ -175,8 +176,8 @@ struct trigger * triggertable_gettrigger(struct triggertable * tt){
 #else
 		t = MALLOC(sizeof(struct trigger));
 		tt->position_table[id] = t;
-#endif
 		t->pos = (uint16_t) id;
+#endif
 		bitmap_unset(tt->trigger_pos_bm, id);
 		tt->filled++;
 		t->id = tt->lastid++;
@@ -207,8 +208,9 @@ bool triggertable_removetrigger(struct triggertable * tt, struct trigger * t){
 	void * t2;
 	if (matcher_remove(tt->m, &t->filter, &t->mask, t, trigger_equal, &t2)){
 		tt->filled --;
-		if (bitmap_set(tt->trigger_pos_bm, ((struct trigger *)t2)->pos)){
-                      fprintf(stderr, "triggertable: wanted to remove trigger with pos %d but it wasn't there", t->pos);
+		uint16_t pos = trigger_getpos(tt, (struct trigger *)t2);
+		if (unlikely(bitmap_set(tt->trigger_pos_bm, pos))){
+                      fprintf(stderr, "triggertable: wanted to remove trigger with pos %u but it wasn't there", pos);
 			return false;
 		}else{
 #if TRIGGERTABLE_INLINE_TRIGGER
@@ -418,7 +420,7 @@ bool triggertable_sweep(struct triggertable * tt, uint32_t sweeptime, const uint
 
 	}	
 	finish_tsc = rte_rdtsc();
-//	printf("finish took %"PRIu64" %d\n", finish_tsc - call_tsc, fr->step);
+//	printf("finish took %"PRIu64" %d\n", finiosh_tsc - call_tsc, fr->step);
 
 #if MULTISTEP
 	updatetickspertype(tt, finish_tsc - call_tsc, flow_num);
@@ -522,6 +524,7 @@ void triggertable_sweepmatch(struct triggertable * tt, struct flowentry * fe, st
 //	printf("%d\n", size);
 	for (i = 0; i < size; i++){
 		t = (struct trigger *) tt->triggers_temp[i];
+		if (trigger_isfgmaster(t)) continue;
 		if (t->tfl == NULL || t->tfhead_filled == TRIGGERFLOW_BATCH){
 			maketflforatrigger(tt, t);
 		}else{
@@ -541,7 +544,7 @@ void triggertable_sweepmatch(struct triggertable * tt, struct flowentry * fe, st
 		}else{
 			addflowtotrigger(t, fe);
 		}
-		rte_prefetch2(t->tfl->tf + t->tfhead_filled);
+	//	rte_prefetch2(t->tfl->tf + t->tfhead_filled);
 	}
 
 //	testfunc(tt, fe, hash, size);
@@ -570,7 +573,7 @@ void singletriggermatch(struct triggertable * tt, struct trigger * t, struct flo
 		fprintf(stderr, "Triggertable: Cannot add trigger %d to flow \n", t->id);
 		return;
 	}
-	fe->triggers[trigger_index] = t->pos;
+	fe->triggers[trigger_index] = trigger_getpos(tt, t);
 	fe->summaries |= t->type->summarymask;
        	trigger_index++;
 
@@ -591,7 +594,7 @@ void triggertable_match(struct triggertable * tt, struct flowentry * fe, struct 
 
 	for (i = 0; i < size; i++){
 		t = (struct trigger *) tt->triggers_temp[i];
-		fe->triggers[trigger_index] = t->pos;
+		fe->triggers[trigger_index] = trigger_getpos(tt, t);
 		fe->summaries |= t->type->summarymask;
        		trigger_index++;
 	}
@@ -861,7 +864,7 @@ void trigger_finish(struct trigger * t, struct triggertable * tt){
 	trigger_cleantfl(t, tt);
 
 #if TRIGGERTABLE_INLINE_TRIGGER
-	memset(tt->position_table + t->pos, 0, sizeof(struct trigger));
+	memset(t, 0, sizeof(struct trigger));
 #else
 	FREE(t);
 #endif
@@ -908,6 +911,15 @@ inline bool triggertable_getreport(struct triggertable * tt, struct trigger * t,
 		return false;
 	}
 	return t->type->report_func(t, tt->fr->step - time, buf);
+}
+
+
+inline uint16_t trigger_getpos(struct triggertable * tt __attribute__((unused)), struct trigger *t){
+#if TRIGGERTABLE_INLINE_TRIGGER
+	return (t - tt->position_table)/sizeof(struct trigger);
+#else
+	return t->pos;
+#endif
 }
 
 ///////////////////////////////// TRIGGER INSTANCES /////////////////////////
