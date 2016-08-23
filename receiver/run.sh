@@ -1,6 +1,6 @@
 #!/bin/bash
-sender=192.168.0.1
-senderfolder=/home/ubuntu/dpdk_r/dpdk/examples/sender
+sender=204.57.3.147
+senderfolder=/home/ubuntu/trumpet/sender
 senderuser=ubuntu
 
 echo "$1 --> $2"

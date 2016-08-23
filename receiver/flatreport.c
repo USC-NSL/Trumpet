@@ -14,6 +14,7 @@
 
 
 #define FLATREPORT_INVALID_BURST_INDEX 16000
+#define FLATREPORT_MATCHANY 0
 
 void * report(void * data);
 int connect_to_server(struct flatreport * fr);
@@ -93,8 +94,8 @@ void preparematchanytrigger(struct flatreport * fr){
 	filter.protocol = 0;
 	flow_fill(&fr->anymatchfilter[fr->anymatchfilternum - 1], &filter);
 	flow_fill(&fr->anymatchfiltermask[fr->anymatchfilternum - 1], &filtermask);
-	flow_print(&filter);
-	flow_print(&filtermask);
+//	flow_print(&filter);
+//	flow_print(&filtermask);
 }
 
 inline bool matchanytrigger(struct flatreport * fr, struct flatreport_pkt * pkt){
@@ -117,9 +118,11 @@ inline struct flowentry * checkflow(struct flatreport * fr, struct flatreport_pk
 	}
 //	fr->lastpktisddos = true; return NULL; //uncomment for zerots
 //	uint64_t s = rte_rdtsc();
-/*	if (!matchanytrigger(fr, pkt)){
+#if FLATREPORT_MATCHANY
+	if (!matchanytrigger(fr, pkt)){
 		return NULL;
-	}*/
+	}
+#endif
 	fr->stat_flownum++;
 	struct flowentry * fe = hashmap_add2(fr->ft1, &pkt->f, pkt->hash, flowflowentry_equal, flowflowentry_init, fr);
 #if TRIGGERTABLE_SWEEP
@@ -370,8 +373,9 @@ struct flatreport * flatreport_init(struct ddostable2 * dt, struct client * c){
 	}
 #endif
 
+#if FLATREPORT_MATCHANY
 	preparematchanytrigger(fr);
-
+#endif
 	//stats
 	fr->stat_pktnum = 0;
 	fr->stat_matchdelay = 0;

@@ -260,7 +260,6 @@ void addtrigger(struct client * c, struct message_addtrigger * m2){
         		t = fgcounter_trigger_init(t, m2->eventid, &m2->f, &m2->mask, c->fr->tt->fgtype, m2->flowgranularity, type, threshold, m2->timeinterval/c->reportinterval);
 		}
 	        triggertable_addtrigger(c->fr->tt, t);
-		trigger_print(t, NULL);
 		flatreport_matchforatrigger(c->fr, t);
 	}
 
@@ -352,6 +351,7 @@ void client_sendsatisfactionsync(struct client * c, struct trigger *t, uint32_t 
         h->length = sizeof (struct message_triggersatisfaction);
 	m2->time = time;
 	m2->eventid = t->eventid;
+	flow_fill(&m2->f, &t->filter);
 	bool code = triggertable_getreport(c->fr->tt, t, m2->buf, time);
 	m2->code = code ? 0 : 1;
 	sendtocontrollerwait(c, MESSAGESIZE(h), h);

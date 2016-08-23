@@ -1144,7 +1144,7 @@ struct trigger * fgcounter_trigger_init(struct trigger * t, uint16_t eventid, st
 	f->dstip |= mask->dstip;
 	f->ports |= mask->ports;
         f->protocol |= mask->protocol;
-	
+
         return t;
 }
 
@@ -1168,7 +1168,8 @@ bool fgcounter_trigger_condition(struct trigger * t __attribute__((unused))){
 struct trigger * trigger_fginit(struct trigger * t, struct trigger * t2, struct flow * f){
 	struct flow f2;
 	flow_mask(&f2, f, trigger_fgmask(t));
-	t2 = counter_trigger_init(t2, t->eventid, &f2, trigger_fgmask(t), *(struct triggertype **)((uintptr_t)t->buf + t->historyindex), counter_trigger_getthreshold(t), t->reset_interval);
+	struct triggertype * type = *(struct triggertype **)((uintptr_t)t->buf + 4); 
+	t2 = counter_trigger_init(t2, t->eventid, &f2, trigger_fgmask(t), type, counter_trigger_getthreshold(t), t->reset_interval);
 	return t2;
 }
 

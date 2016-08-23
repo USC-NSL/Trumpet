@@ -58,7 +58,7 @@ void usecase_netwide_addevent(struct eventhandler * eh, struct dc_param * events
                 e->mask.ports = 0xffffffff;
 		e->mask.protocol = 0x00000000;
                 e->f.srcip = ntohl(e->mask.srcip &((((((10<<8)+0)<<8)+5)<<8)+4));
-                e->f.dstip = ntohl(e->mask.dstip & (((((((10<<8)+0)<<8)+4+0)<<8)+0) + (eh->events_num << (generatoripbits-log2_32(eventsnum)))));
+                e->f.dstip = ntohl(e->mask.dstip & (((((((10<<8)+0)<<8)+4+0)<<8)+0) + (i << (generatoripbits-log2_32(eventsnum)))));
                 e->f.ports = (ntohs((e->mask.ports>>16) & 58513)<<16) | ntohs((e->mask.ports & 0xffff) & 2500);
 		e->f.protocol = 0;
                 e->timeinterval = 10; 
@@ -439,15 +439,15 @@ static struct event * usecase_file_readline(struct usecase_file * u2, char * lin
 	dstport_len = atoi(filter_a[9]);
 	dstport_len = dstport_len > 16 ? 16 : dstport_len;
 
-	fg_srcip_len = atoi(fg_a[1]);
+	fg_srcip_len = atoi(fg_a[0]);
 	fg_srcip_len = fg_srcip_len > 32 ? 32 : fg_srcip_len;
-	fg_dstip_len = atoi(fg_a[3]);
+	fg_dstip_len = atoi(fg_a[1]);
 	fg_dstip_len = fg_dstip_len > 32 ? 32 : fg_dstip_len;
-	fg_protocol_len = atoi(fg_a[5]);
+	fg_protocol_len = atoi(fg_a[2]);
 	fg_protocol_len = fg_protocol_len > 8 ? 8 : fg_protocol_len;
-	fg_srcport_len = atoi(fg_a[7]);
+	fg_srcport_len = atoi(fg_a[3]);
 	fg_srcport_len = fg_srcport_len > 16 ? 16 : fg_srcport_len;
-	fg_dstport_len = atoi(fg_a[9]);
+	fg_dstport_len = atoi(fg_a[4]);
 	fg_dstport_len = fg_dstport_len > 16 ? 16 : fg_dstport_len;
 
 	//create the event
@@ -478,6 +478,7 @@ static struct event * usecase_file_readline(struct usecase_file * u2, char * lin
 		e->fgmask.ports |= e->mask.ports;
 		e->fgmask.protocol |= e->mask.protocol;
 	}
+
 
  	return e;
 }

@@ -80,7 +80,7 @@ void matcher_match(struct matcher * m, struct flow * f2, void ** dataarr, uint16
 	struct table * tbl;
 	uint16_t s = *size;
 	for (tbl = m->tables; tbl != NULL; tbl = tbl->next){
-		*size -= matcher_tablematch(tbl, f2, dataarr, size);	
+		*size -= matcher_tablematch(tbl, f2, dataarr + (s - *size), size);	
 	}
 
 	*size = s - *size;
@@ -170,7 +170,7 @@ bool table_finish2(void * data, void * aux __attribute__((unused))){
 inline void table_finish(struct table * tbl){
 	hashmap_apply(tbl->map, matcherlist_head_finish, NULL);
 	hashmap_finish(tbl->map);
-	FREE(tbl);
+//	FREE(tbl);
 }
 
 bool table_maskequal(void * data1, void * data2, void * aux __attribute__((unused))){

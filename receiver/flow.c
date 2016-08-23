@@ -102,8 +102,8 @@ uint32_t flow_makeflowgranularity(uint8_t srcip_len, uint8_t dstip_len, uint8_t 
 }
 
 void flow_makemask(struct flow * mask, uint8_t srcip_len, uint8_t dstip_len, uint8_t srcport_len, uint8_t dstport_len, uint8_t protocol_len){
-	mask->srcip = 0xffffffff << (32-srcip_len);
-        mask->dstip = 0xffffffff << (32-dstip_len);
+	mask->srcip = 0x00ffffffffUL << (32-srcip_len);
+        mask->dstip = 0x00ffffffffUL << (32-dstip_len);
         mask->ports = ((0x00000000ffffUL << (32-srcport_len))&0xffff0000) | ((0x0000ffff << (16-dstport_len)) & 0x0000ffff);
         mask->protocol = (0x000000ff <<(8-protocol_len)) & 0x000000ff;
 

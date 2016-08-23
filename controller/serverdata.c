@@ -359,6 +359,7 @@ void serverdata_addtrigger(struct serverdata * server, struct event * e, struct 
 	flow_fill(&m->f, &e->f);
 	flow_fill(&m->mask, &e->mask);
 	m->timeinterval = e->timeinterval;
+	m->flowgranularity = e->flowgranularity;
 	event_fill(e, t, m->buf);
 	
 	sendtoserver(server, h);

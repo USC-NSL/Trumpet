@@ -11,7 +11,6 @@
 #include "util.h"
 #include "usecase.h"
 
-
 void * delaycommand_thread (void *_);
 int event_checkcondition(struct eventhandler * eh, struct event * e, struct eventhistory * es);
 struct event * event_init(struct event * e);
@@ -33,7 +32,6 @@ bool eventhistorychain_isobsolete(struct eventhistorychain * esc, struct eventha
 bool eventhistorychain_replace(void * newdata, void * data, void * aux);
 void eventhistorychain_flowinit(void * newdata, void * data, void * aux);
 bool eventhistorychain_finish(void * data, void * aux);
-
 
 struct delayedcommand * delayedcommand_init(uint64_t timeus){
 	struct delayedcommand * dc = MALLOC(sizeof (struct delayedcommand));
@@ -359,14 +357,20 @@ void getaneventhistory(struct eventhandler * eh, struct event * e, struct trigge
 		}else{//find the right place to insert A VERY ODD CASE
 			struct eventhistory * es2;
 			for (es2 = &esc->es; es2->next != NULL && es2->time >= time; es2 = es2->next);
-			es = malloc(sizeof (struct eventhistory));
+			if (es2->time < time){
+				//reuse it
+				es = es2;
+			}else{
+				//es2 cannot be NULL
+				es = malloc(sizeof (struct eventhistory));
 //			printf("event %d time %d thread %d malloc %p\n", e->id, time, (int) pthread_self(), es);
-			es->next = es2->next;
-			es->prev = es2;
-			if (es2->next != NULL){
-				es2->next->prev = es;
+				es->next = es2->next;
+				es->prev = es2;
+				if (es2->next != NULL){
+					es2->next->prev = es;
+				}
+				es2->next = es;
 			}
-			es2->next = es;
 		}
 		es->inittrigger = t2;
 		es->time = time;	
@@ -432,7 +436,8 @@ void eventhandler_notify(struct eventhandler * eh, uint16_t eventid, struct serv
 		if (es != NULL){
 			if (es->prev == NULL){
 				if (es->next == NULL){
-					hashmap_remove(e->eventhistory_map, es);
+					//comment below to keep in hashmap. Replace will clean the table 
+					//hashmap_remove(e->eventhistory_map, esc);
 				}else{//copy its data 
 					struct eventhistory * esnext = es->next;
 					memcpy(es, esnext, sizeof (struct eventhistory));
