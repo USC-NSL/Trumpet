@@ -24,7 +24,7 @@ Here, we describe how to setup dpdk and the code.
 - Also make sure that you have sudo access
 - Make sure you can get sudo access without the need to type password. For this you need to add the following line in the sudoers file. run "sudo visudo". Then add the "masoud ALL=(ALL:ALL) NOPASSWD: ALL". Replace masoud with your username. Push ctrl+x and choose yes to save and exit.
 - You either need to pass password to the ssh command or setup public/private key authentication for that. To use public/private key use the steps here: https://help.ubuntu.com/community/SSH/OpenSSH/Keys. If you choose a passphrase for the key pair, you may want to use the ssh-agent to remember it. Look at http://rabexc.org/posts/using-ssh-agent. So after this you should be able to ssh from the receiver machine to the sender without using the password.
-- There three components in this package provided in separate folders: receiver, sender and controller. Make sure you can compile all three. Each component has a -h commandline that shows the commandline parameter help.
+- There are three components in this package provided in separate folders: receiver, sender and controller. Make sure you can compile all three. Each component has a -h commandline that shows the commandline parameter help.
 
 Done.
 You can reverse the config by running the tools/setup.sh again and
