@@ -214,6 +214,7 @@ void flatreport_batchprocess(struct flatreport * fr){
 	                summary_apply_update(fr->st, fe, fr, pkt);
 		}
         }
+	
         fr->last_flowentry = fe;
 	fr->pkt_q = 0;
 }
