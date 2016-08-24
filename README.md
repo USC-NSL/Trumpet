@@ -7,4 +7,4 @@ Note that this system is just developed to test the academic idea of resource al
 Please refer to the following paper if you use the code for any publication.
 Masoud Moshref, Minlan Yu, Ramesh Govindan, Amin Vahdat, "Trumpet: Timely and Precise Triggers in Data Centers", SIGCOMM, 2016
 
-http://delivery.acm.org/10.1145/2940000/2934879/p129-moshref.pdf
+https://nsl.cs.usc.edu/Papers/?action=download&upname=Moshref_16a.pdf
