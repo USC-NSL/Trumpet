@@ -1178,7 +1178,7 @@ int main(int argc, char *argv[]) {
 				       sizeof(struct rte_pktmbuf_pool_private),
 				       rte_pktmbuf_pool_init, NULL,
 				       rte_pktmbuf_init,      NULL,
-				       1,
+				       rte_socket_id(),
 				       0);
 
 	if (g.mbuf_pool == NULL)
